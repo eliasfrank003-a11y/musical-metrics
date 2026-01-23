@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useRef } from 'react';
 import { Upload, FileText } from 'lucide-react';
 
 interface FileUploadProps {
@@ -7,51 +7,74 @@ interface FileUploadProps {
 }
 
 export function FileUpload({ onFileLoad, isLoading }: FileUploadProps) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const readFile = useCallback((file: File) => {
+    console.log('[FileUpload] Reading file:', file.name);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const content = e.target?.result as string;
+      console.log('[FileUpload] File loaded, length:', content?.length);
+      if (content) {
+        onFileLoad(content);
+      }
+    };
+    reader.onerror = (e) => {
+      console.error('[FileUpload] Error reading file:', e);
+    };
+    reader.readAsText(file);
+  }, [onFileLoad]);
+
   const handleDrop = useCallback(
     (e: React.DragEvent<HTMLDivElement>) => {
       e.preventDefault();
+      e.stopPropagation();
+      console.log('[FileUpload] File dropped');
       const file = e.dataTransfer.files[0];
-      if (file && file.name.endsWith('.csv')) {
-        readFile(file);
-      }
-    },
-    [onFileLoad]
-  );
-
-  const handleChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
       if (file) {
         readFile(file);
       }
     },
-    [onFileLoad]
+    [readFile]
   );
 
-  const readFile = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const content = e.target?.result as string;
-      onFileLoad(content);
-    };
-    reader.readAsText(file);
-  };
+  const handleChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      console.log('[FileUpload] File selected via input');
+      const file = e.target.files?.[0];
+      if (file) {
+        readFile(file);
+      }
+      // Reset input so the same file can be selected again
+      if (inputRef.current) {
+        inputRef.current.value = '';
+      }
+    },
+    [readFile]
+  );
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleClick = () => {
+    inputRef.current?.click();
   };
 
   return (
     <div
       onDrop={handleDrop}
       onDragOver={handleDragOver}
-      className="relative group"
+      onClick={handleClick}
+      className="relative group cursor-pointer"
     >
       <input
+        ref={inputRef}
         type="file"
-        accept=".csv"
+        accept=".csv,text/csv"
         onChange={handleChange}
-        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+        className="sr-only"
         disabled={isLoading}
       />
       <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-border rounded-xl transition-all duration-300 group-hover:border-primary group-hover:bg-secondary/50">
