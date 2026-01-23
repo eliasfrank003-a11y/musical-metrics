@@ -15,6 +15,8 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Piano } from 'lucide-react';
 
+const APP_VERSION = 'v1';
+
 type TimeRange = '1W' | '1M' | '1Y' | 'ALL';
 
 const Index = () => {
@@ -74,14 +76,19 @@ const Index = () => {
       {/* Header */}
       <header className="border-b border-border">
         <div className="container max-w-4xl mx-auto px-4 py-4">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-primary/10">
-              <Piano className="w-5 h-5 text-primary" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-primary/10">
+                <Piano className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <h1 className="text-lg font-semibold text-foreground">Practice Tracker</h1>
+                <p className="text-xs text-muted-foreground">Your musical journey, visualized</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-lg font-semibold text-foreground">Practice Tracker</h1>
-              <p className="text-xs text-muted-foreground">Your musical journey, visualized</p>
-            </div>
+            <span className="text-xs text-muted-foreground bg-secondary px-2 py-1 rounded-md">
+              {APP_VERSION}
+            </span>
           </div>
         </div>
       </header>
