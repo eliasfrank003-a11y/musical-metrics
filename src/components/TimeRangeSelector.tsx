@@ -1,9 +1,9 @@
 interface TimeRangeSelectorProps {
-  selectedRange: '1W' | '1M' | '1Y' | 'ALL';
-  onRangeChange: (range: '1W' | '1M' | '1Y' | 'ALL') => void;
+  selectedRange: '1W' | '1M' | '6M' | '1Y' | 'ALL';
+  onRangeChange: (range: '1W' | '1M' | '6M' | '1Y' | 'ALL') => void;
 }
 
-const ranges: Array<'1W' | '1M' | '1Y' | 'ALL'> = ['1W', '1M', '1Y', 'ALL'];
+const ranges: Array<'1W' | '1M' | '6M' | '1Y' | 'ALL'> = ['1W', '1M', '6M', '1Y', 'ALL'];
 
 export function TimeRangeSelector({ selectedRange, onRangeChange }: TimeRangeSelectorProps) {
   return (
