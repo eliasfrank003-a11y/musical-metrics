@@ -8,33 +8,43 @@ interface MetricDisplayProps {
 
 export function MetricDisplay({ currentAverage, delta, isPositive }: MetricDisplayProps) {
   const formatHoursMinutes = (hours: number): string => {
-    const h = Math.floor(hours);
-    const m = Math.round((hours - h) * 60);
+    const totalSeconds = Math.round(hours * 3600);
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = totalSeconds % 60;
     
-    if (h === 0 && m === 0) {
-      return '0m';
+    if (h === 0 && m === 0 && s === 0) {
+      return '0s';
     }
     
-    if (h === 0) {
-      return `${m}m`;
-    }
+    const parts: string[] = [];
+    if (h > 0) parts.push(`${h}h`);
+    if (m > 0) parts.push(`${m}m`);
+    if (s > 0 || parts.length === 0) parts.push(`${s}s`);
     
-    if (m === 0) {
-      return `${h}h`;
-    }
-    
-    return `${h}h ${m}m`;
+    return parts.join(' ');
   };
 
   const formatDelta = (hours: number): string => {
-    const sign = hours >= 0 ? '+' : '';
-    const m = Math.round(hours * 60);
+    const totalSeconds = Math.round(Math.abs(hours) * 3600);
+    const m = Math.floor(totalSeconds / 60);
+    const s = totalSeconds % 60;
     
-    if (Math.abs(m) < 1) {
-      return '0m';
+    if (m === 0 && s === 0) {
+      return '0s';
     }
     
-    return `${sign}${m}m`;
+    const signPrefix = hours >= 0 ? '+' : '-';
+    
+    if (m === 0) {
+      return `${signPrefix}${s}s`;
+    }
+    
+    if (s === 0) {
+      return `${signPrefix}${m}m`;
+    }
+    
+    return `${signPrefix}${m}m ${s}s`;
   };
 
   return (
