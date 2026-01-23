@@ -130,7 +130,6 @@ const Index = () => {
             <StatsFooter
               totalHours={analytics.totalHours}
               totalDays={analytics.totalDays}
-              startDate={analytics.startDate}
             />
 
             {/* Reset Button */}
