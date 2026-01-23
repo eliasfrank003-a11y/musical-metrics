@@ -84,7 +84,7 @@ export function calculateAnalytics(sessions: PracticeSession[]): AnalyticsResult
  */
 export function filterDataByRange(
   data: DailyData[],
-  range: '1W' | '1M' | '1Y' | 'ALL',
+  range: '1W' | '1M' | '6M' | '1Y' | 'ALL',
   endDate: Date
 ): DailyData[] {
   if (range === 'ALL' || data.length === 0) {
@@ -99,6 +99,9 @@ export function filterDataByRange(
       break;
     case '1M':
       startDate = subMonths(endDate, 1);
+      break;
+    case '6M':
+      startDate = subMonths(endDate, 6);
       break;
     case '1Y':
       startDate = subYears(endDate, 1);

@@ -13,14 +13,19 @@ import { DailyData } from '@/lib/practiceAnalytics';
 
 interface PracticeChartProps {
   data: DailyData[];
-  timeRange: '1W' | '1M' | '1Y' | 'ALL';
+  timeRange: '1W' | '1M' | '6M' | '1Y' | 'ALL';
 }
 
 export function PracticeChart({ data, timeRange }: PracticeChartProps) {
   const chartData = useMemo(() => {
     return data.map((d) => ({
       ...d,
-      displayDate: format(d.date, timeRange === '1W' ? 'EEE' : timeRange === '1M' ? 'MMM d' : 'MMM yyyy'),
+      displayDate: format(
+        d.date, 
+        timeRange === '1W' ? 'EEE' : 
+        timeRange === '1M' ? 'MMM d' : 
+        'MMM yyyy'
+      ),
       averageHours: d.cumulativeAverage,
     }));
   }, [data, timeRange]);

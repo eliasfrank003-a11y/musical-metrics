@@ -23,7 +23,7 @@ import { GoogleSignInButton } from '@/components/GoogleSignInButton';
 
 const APP_VERSION = 'v5';
 
-type TimeRange = '1W' | '1M' | '1Y' | 'ALL';
+type TimeRange = '1W' | '1M' | '6M' | '1Y' | 'ALL';
 
 const Index = () => {
   const [analytics, setAnalytics] = useState<AnalyticsResult | null>(null);
@@ -158,7 +158,7 @@ const Index = () => {
     let data = filterDataByRange(analytics.dailyData, timeRange, analytics.endDate);
     
     // Downsample for smoother visualization on longer timeframes
-    if (timeRange === '1Y' || timeRange === 'ALL') {
+    if (timeRange === '6M' || timeRange === '1Y' || timeRange === 'ALL') {
       data = downsampleData(data, 100);
     }
     
