@@ -43,10 +43,10 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get the latest started_at from the database
+    // Get the latest session from the database (we'll derive an end time)
     const { data: latestSession, error: latestError } = await supabase
       .from("practice_sessions")
-      .select("started_at")
+      .select("started_at, duration_seconds")
       .order("started_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -57,7 +57,17 @@ Deno.serve(async (req) => {
     }
 
     const latestTimestamp = latestSession?.started_at || null;
-    console.log(`[sync-google-calendar] Latest timestamp in DB: ${latestTimestamp}`);
+    const latestDurationSeconds = typeof latestSession?.duration_seconds === "number"
+      ? latestSession.duration_seconds
+      : null;
+
+    const latestEndTimeMs = latestTimestamp && latestDurationSeconds !== null
+      ? new Date(latestTimestamp).getTime() + latestDurationSeconds * 1000
+      : null;
+
+    console.log(
+      `[sync-google-calendar] Latest session in DB: started_at=${latestTimestamp} duration_seconds=${latestDurationSeconds} derived_end=${latestEndTimeMs ? new Date(latestEndTimeMs).toISOString() : null}`
+    );
 
     // First, find the ATracker calendar
     let calendarToUse = targetCalendarId;
@@ -100,11 +110,14 @@ Deno.serve(async (req) => {
       `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarToUse)}/events`
     );
     
-    // Only fetch events after the latest timestamp
-    if (latestTimestamp) {
-      // Add 1 second to avoid fetching the same event
-      const minTime = new Date(new Date(latestTimestamp).getTime() + 1000).toISOString();
-      calendarApiUrl.searchParams.set("timeMin", minTime);
+    // Only fetch events after the latest *end* time.
+    // Google Calendar's timeMin filter matches events whose time range overlaps the window,
+    // so using started_at can cause the latest event to be returned forever.
+    if (latestEndTimeMs) {
+      calendarApiUrl.searchParams.set(
+        "timeMin",
+        new Date(latestEndTimeMs + 1000).toISOString() // +1s to avoid boundary re-fetch
+      );
     }
     
     calendarApiUrl.searchParams.set("singleEvents", "true");
@@ -174,7 +187,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Check for duplicates by started_at timestamp
+    // Check for duplicates by started_at (across *all* sources)
     const startedAtTimestamps = potentialSessions.map(s => s.started_at);
     const { data: existingSessions, error: existingError } = await supabase
       .from("practice_sessions")
@@ -186,16 +199,22 @@ Deno.serve(async (req) => {
       throw new Error("Failed to check for duplicate sessions");
     }
 
-    const existingTimestamps = new Set(
-      (existingSessions || []).map(s => s.started_at)
+    // Normalize timestamps to epoch milliseconds to avoid format differences like
+    // "2026-01-23T18:30:50+00:00" vs "2026-01-23T18:30:50.000Z".
+    const existingStartMs = new Set(
+      (existingSessions || []).map((s) => new Date(s.started_at).getTime())
     );
 
     // Filter out duplicates
-    const newSessions = potentialSessions.filter(
-      session => !existingTimestamps.has(session.started_at)
-    );
+    const newSessions = potentialSessions.filter((session) => {
+      const ms = new Date(session.started_at).getTime();
+      return !existingStartMs.has(ms);
+    });
 
-    console.log(`[sync-google-calendar] ${newSessions.length} new sessions after deduplication (${existingTimestamps.size} duplicates skipped)`);
+    const duplicatesSkipped = potentialSessions.length - newSessions.length;
+    console.log(
+      `[sync-google-calendar] ${newSessions.length} new sessions after deduplication (${duplicatesSkipped} duplicates skipped)`
+    );
 
     if (newSessions.length === 0) {
       return new Response(
