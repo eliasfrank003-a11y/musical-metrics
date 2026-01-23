@@ -18,6 +18,8 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useGoogleCalendarSync } from '@/hooks/useGoogleCalendarSync';
+import { useAuth } from '@/hooks/useAuth';
+import { GoogleSignInButton } from '@/components/GoogleSignInButton';
 
 const APP_VERSION = 'v5';
 
@@ -29,6 +31,7 @@ const Index = () => {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const { syncState, isConnected, syncCalendar, connectGoogle } = useGoogleCalendarSync();
+  const { user, isLoading: authLoading } = useAuth();
 
   // Fetch all data from Supabase (paginated to avoid 1000 row limit)
   const fetchData = useCallback(async () => {
@@ -173,39 +176,46 @@ const Index = () => {
                 {APP_VERSION}
               </span>
               
-              {/* Calendar sync indicator */}
-              {isConnected ? (
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  onClick={async () => {
-                    const hasNewData = await syncCalendar(true);
-                    if (hasNewData) await fetchData();
-                  }}
-                  disabled={syncState.status === 'syncing' || syncState.status === 'checking'}
-                  className="relative"
-                  title="Sync Google Calendar"
-                >
-                  <Calendar className={`w-5 h-5 ${
-                    syncState.status === 'syncing' || syncState.status === 'checking' 
-                      ? 'animate-pulse' 
-                      : ''
-                  }`} />
-                  {syncState.status === 'success' && syncState.syncedCount > 0 && (
-                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-primary text-primary-foreground text-[10px] rounded-full flex items-center justify-center">
-                      {syncState.syncedCount > 9 ? '9+' : syncState.syncedCount}
-                    </span>
-                  )}
-                </Button>
+              {/* Auth / Calendar controls */}
+              {!user && !authLoading ? (
+                <GoogleSignInButton className="h-9" />
               ) : (
-                <Button 
-                  variant="ghost" 
-                  size="icon"
-                  onClick={connectGoogle}
-                  title="Connect Google Calendar"
-                >
-                  <Calendar className="w-5 h-5 text-muted-foreground" />
-                </Button>
+                <>
+                  {/* Calendar sync indicator */}
+                  {isConnected ? (
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={async () => {
+                        const hasNewData = await syncCalendar(true);
+                        if (hasNewData) await fetchData();
+                      }}
+                      disabled={syncState.status === 'syncing' || syncState.status === 'checking'}
+                      className="relative"
+                      title="Sync Google Calendar"
+                    >
+                      <Calendar className={`w-5 h-5 ${
+                        syncState.status === 'syncing' || syncState.status === 'checking' 
+                          ? 'animate-pulse' 
+                          : ''
+                      }`} />
+                      {syncState.status === 'success' && syncState.syncedCount > 0 && (
+                        <span className="absolute -top-1 -right-1 w-4 h-4 bg-primary text-primary-foreground text-[10px] rounded-full flex items-center justify-center">
+                          {syncState.syncedCount > 9 ? '9+' : syncState.syncedCount}
+                        </span>
+                      )}
+                    </Button>
+                  ) : (
+                    <Button 
+                      variant="ghost" 
+                      size="icon"
+                      onClick={connectGoogle}
+                      title="Connect Google Calendar"
+                    >
+                      <Calendar className="w-5 h-5 text-muted-foreground" />
+                    </Button>
+                  )}
+                </>
               )}
               
               <Button variant="ghost" size="icon" onClick={fetchData} disabled={isLoading}>
