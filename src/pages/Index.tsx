@@ -165,6 +165,97 @@ const Index = () => {
       delta
     };
   }, [analytics, timeRange]);
-  return;
+  return (
+    <div className="min-h-screen bg-background">
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-3">
+            <Piano className="w-8 h-8 text-primary" />
+            <h1 className="text-2xl font-bold text-foreground">Practice Tracker</h1>
+            <span className="text-xs text-muted-foreground font-mono">{APP_VERSION}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            {user && isConnected && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => syncCalendar(true).then((hasNew) => hasNew && fetchData())}
+                disabled={syncState.status === 'syncing'}
+                className="gap-2"
+              >
+                <RefreshCw className={`w-4 h-4 ${syncState.status === 'syncing' ? 'animate-spin' : ''}`} />
+                {syncState.status === 'syncing' ? 'Syncing...' : 'Sync'}
+              </Button>
+            )}
+            {!user && !authLoading && (
+              <GoogleSignInButton />
+            )}
+            <Link to="/settings">
+              <Button variant="ghost" size="icon">
+                <Settings className="w-5 h-5" />
+              </Button>
+            </Link>
+          </div>
+        </div>
+
+        {/* Sync Status */}
+        {user && syncState.status !== 'idle' && syncState.status !== 'checking' && (
+          <div className={`mb-4 p-3 rounded-lg text-sm flex items-center gap-2 ${
+            syncState.status === 'success' ? 'bg-green-500/10 text-green-500' :
+            syncState.status === 'error' ? 'bg-destructive/10 text-destructive' :
+            syncState.status === 'not_connected' ? 'bg-muted text-muted-foreground' :
+            'bg-primary/10 text-primary'
+          }`}>
+            <Calendar className="w-4 h-4" />
+            {syncState.message}
+          </div>
+        )}
+
+        {/* Main Content */}
+        {isLoading ? (
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          </div>
+        ) : analytics ? (
+          <div className="space-y-6">
+            {/* Time Range Selector */}
+            <TimeRangeSelector selectedRange={timeRange} onRangeChange={setTimeRange} />
+
+            {/* Metric Display */}
+            <MetricDisplay
+              currentAverage={analytics.currentAverage}
+              delta={delta.value}
+              isPositive={delta.value >= 0}
+            />
+
+            {/* Chart */}
+            <PracticeChart data={filteredData} timeRange={timeRange} />
+
+            {/* Footer Stats */}
+            <StatsFooter
+              totalHours={analytics.totalHours}
+              totalDays={analytics.totalDays}
+            />
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <Piano className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
+            <h2 className="text-xl font-semibold mb-2">No Practice Data</h2>
+            <p className="text-muted-foreground mb-4">
+              Connect your Google Calendar or import data in Settings
+            </p>
+            <Link to="/settings">
+              <Button>
+                <Settings className="w-4 h-4 mr-2" />
+                Go to Settings
+              </Button>
+            </Link>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 };
+
 export default Index;
