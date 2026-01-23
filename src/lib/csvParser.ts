@@ -25,7 +25,6 @@ const monthMap: Record<string, number> = {
 /**
  * Parse date format: "D. MMM YYYY at HH:MM:SS"
  * Example: "1. Feb 2024 at 18:00:00"
- * Also handles: "1. Februar 2024 at 18:00:00"
  */
 export function parseGermanDate(dateStr: string): Date | null {
   try {
@@ -33,7 +32,6 @@ export function parseGermanDate(dateStr: string): Date | null {
       return null;
     }
 
-    // Normalize the string
     const normalized = dateStr.trim().toLowerCase();
     
     // Try regex pattern: "D. Month YYYY at HH:MM:SS"
@@ -91,6 +89,27 @@ export function parseEuropeanDecimal(value: string): number {
 }
 
 /**
+ * Detect the separator used in a CSV header line
+ */
+function detectSeparator(headerLine: string): string {
+  // Count occurrences of potential separators
+  const semicolonCount = (headerLine.match(/;/g) || []).length;
+  const commaCount = (headerLine.match(/,/g) || []).length;
+  const tabCount = (headerLine.match(/\t/g) || []).length;
+  
+  console.log(`[CSV Parser] Separator detection - semicolons: ${semicolonCount}, commas: ${commaCount}, tabs: ${tabCount}`);
+  
+  // Use the most common separator (headers typically don't have decimal numbers)
+  if (semicolonCount >= commaCount && semicolonCount >= tabCount && semicolonCount > 0) {
+    return ';';
+  }
+  if (tabCount >= commaCount && tabCount > 0) {
+    return '\t';
+  }
+  return ',';
+}
+
+/**
  * Parse CSV content into PracticeSession array
  */
 export function parseCSV(content: string): PracticeSession[] {
@@ -103,8 +122,12 @@ export function parseCSV(content: string): PracticeSession[] {
     throw new Error('CSV file must have headers and at least one data row');
   }
   
+  // Detect separator from header line (headers don't have decimal numbers)
+  const separator = detectSeparator(lines[0]);
+  console.log(`[CSV Parser] Using separator: "${separator === '\t' ? 'TAB' : separator}"`);
+  
   // Parse headers (first line)
-  const headers = parseCSVLine(lines[0]);
+  const headers = parseCSVLine(lines[0], separator);
   console.log('[CSV Parser] Headers:', headers);
   
   // Find column indices (case-insensitive, partial match)
@@ -137,12 +160,17 @@ export function parseCSV(content: string): PracticeSession[] {
   const sessions: PracticeSession[] = [];
   const errors: string[] = [];
   
-  // Parse data rows
+  // Parse data rows using the SAME separator
   for (let i = 1; i < lines.length; i++) {
-    const values = parseCSVLine(lines[i]);
+    const values = parseCSVLine(lines[i], separator);
+    
+    // Log first few rows for debugging
+    if (i <= 3) {
+      console.log(`[CSV Parser] Row ${i + 1} values (${values.length} columns):`, values.slice(0, 6));
+    }
     
     if (values.length < Math.max(startTimeIdx, durationHoursIdx) + 1) {
-      errors.push(`Row ${i + 1}: Not enough columns`);
+      errors.push(`Row ${i + 1}: Got ${values.length} columns, need at least ${Math.max(startTimeIdx, durationHoursIdx) + 1}`);
       continue;
     }
     
@@ -182,16 +210,12 @@ export function parseCSV(content: string): PracticeSession[] {
 }
 
 /**
- * Parse a single CSV line, handling quoted values and different separators
+ * Parse a single CSV line with a specific separator
  */
-function parseCSVLine(line: string): string[] {
+function parseCSVLine(line: string, separator: string): string[] {
   const result: string[] = [];
   let current = '';
   let inQuotes = false;
-  
-  // Detect separator (comma or semicolon)
-  const hasSemicolon = line.includes(';') && !line.includes(',');
-  const separator = hasSemicolon ? ';' : ',';
   
   for (let i = 0; i < line.length; i++) {
     const char = line[i];
