@@ -28,24 +28,41 @@ const Index = () => {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
-  // Fetch data from Supabase
+  // Fetch all data from Supabase (paginated to avoid 1000 row limit)
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('practice_sessions')
-        .select('*')
-        .order('started_at', { ascending: true });
+      const allData: typeof data = [];
+      let from = 0;
+      const pageSize = 1000;
+      let data;
+      
+      // Paginate through all results
+      do {
+        const { data: pageData, error } = await supabase
+          .from('practice_sessions')
+          .select('*')
+          .order('started_at', { ascending: true })
+          .range(from, from + pageSize - 1);
 
-      if (error) throw error;
+        if (error) throw error;
+        
+        data = pageData;
+        if (data && data.length > 0) {
+          allData.push(...data);
+        }
+        from += pageSize;
+      } while (data && data.length === pageSize);
 
-      if (!data || data.length === 0) {
+      if (allData.length === 0) {
         setAnalytics(null);
         return;
       }
 
+      console.log(`[Dashboard] Loaded ${allData.length} sessions from database`);
+
       // Convert Supabase data to PracticeSession format
-      const sessions: PracticeSession[] = data.map(row => ({
+      const sessions: PracticeSession[] = allData.map(row => ({
         taskName: 'Practice',
         startTime: new Date(row.started_at),
         endTime: new Date(new Date(row.started_at).getTime() + row.duration_seconds * 1000),
