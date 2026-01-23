@@ -143,7 +143,7 @@ Deno.serve(async (req) => {
     }
 
     // Transform calendar events to practice sessions
-    const newSessions = events
+    const potentialSessions = events
       .filter((event) => {
         // Must have both start and end times (not all-day events without time)
         return event.start?.dateTime && event.end?.dateTime;
@@ -161,14 +161,48 @@ Deno.serve(async (req) => {
       })
       .filter((session) => session.duration_seconds > 0);
 
-    console.log(`[sync-google-calendar] ${newSessions.length} valid sessions to insert`);
+    console.log(`[sync-google-calendar] ${potentialSessions.length} valid sessions to check for duplicates`);
+
+    if (potentialSessions.length === 0) {
+      return new Response(
+        JSON.stringify({
+          synced: 0,
+          latestTimestamp,
+          message: "No valid practice sessions found in calendar events",
+        } as SyncResult),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Check for duplicates by started_at timestamp
+    const startedAtTimestamps = potentialSessions.map(s => s.started_at);
+    const { data: existingSessions, error: existingError } = await supabase
+      .from("practice_sessions")
+      .select("started_at")
+      .in("started_at", startedAtTimestamps);
+
+    if (existingError) {
+      console.error("Error checking for duplicates:", existingError);
+      throw new Error("Failed to check for duplicate sessions");
+    }
+
+    const existingTimestamps = new Set(
+      (existingSessions || []).map(s => s.started_at)
+    );
+
+    // Filter out duplicates
+    const newSessions = potentialSessions.filter(
+      session => !existingTimestamps.has(session.started_at)
+    );
+
+    console.log(`[sync-google-calendar] ${newSessions.length} new sessions after deduplication (${existingTimestamps.size} duplicates skipped)`);
 
     if (newSessions.length === 0) {
       return new Response(
         JSON.stringify({
           synced: 0,
           latestTimestamp,
-          message: "No valid practice sessions found in calendar events",
+          message: "All events already synced (no new sessions)",
         } as SyncResult),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );

@@ -58,6 +58,11 @@ export function useGoogleCalendarSync() {
   const syncCalendar = useCallback(async (showToast = true): Promise<boolean> => {
     setSyncState(prev => ({ ...prev, status: 'checking', message: 'Checking Google connection...' }));
 
+    // Create timeout promise
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('Sync timed out after 30 seconds')), 30000);
+    });
+
     try {
       const { data: { session } } = await supabase.auth.getSession();
       
@@ -73,13 +78,16 @@ export function useGoogleCalendarSync() {
 
       setSyncState(prev => ({ ...prev, status: 'syncing', message: 'Fetching calendar events...' }));
 
-      // Call the edge function
-      const { data, error } = await supabase.functions.invoke<SyncResult>('sync-google-calendar', {
-        body: {
-          accessToken: session.provider_token,
-          calendarId: 'ATracker', // Will be searched for by name
-        },
-      });
+      // Race between sync and timeout
+      const { data, error } = await Promise.race([
+        supabase.functions.invoke<SyncResult>('sync-google-calendar', {
+          body: {
+            accessToken: session.provider_token,
+            calendarId: 'ATracker', // Will be searched for by name
+          },
+        }),
+        timeoutPromise,
+      ]);
 
       if (error) {
         throw new Error(error.message);
