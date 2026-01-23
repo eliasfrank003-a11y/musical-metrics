@@ -169,34 +169,27 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-3">
-            <Piano className="w-8 h-8 text-primary" />
-            <h1 className="text-2xl font-bold text-foreground">Practice Tracker</h1>
-            <span className="text-xs text-muted-foreground font-mono">{APP_VERSION}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            {user && isConnected && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => syncCalendar(true).then((hasNew) => hasNew && fetchData())}
-                disabled={syncState.status === 'syncing'}
-                className="gap-2"
-              >
-                <RefreshCw className={`w-4 h-4 ${syncState.status === 'syncing' ? 'animate-spin' : ''}`} />
-                {syncState.status === 'syncing' ? 'Syncing...' : 'Sync'}
-              </Button>
-            )}
-            {!user && !authLoading && (
-              <GoogleSignInButton />
-            )}
-            <Link to="/settings">
-              <Button variant="ghost" size="icon">
-                <Settings className="w-5 h-5" />
-              </Button>
-            </Link>
-          </div>
+        <div className="flex items-center justify-end mb-8 gap-2">
+          {user && isConnected && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => syncCalendar(true).then((hasNew) => hasNew && fetchData())}
+              disabled={syncState.status === 'syncing'}
+              className="gap-2"
+            >
+              <RefreshCw className={`w-4 h-4 ${syncState.status === 'syncing' ? 'animate-spin' : ''}`} />
+              {syncState.status === 'syncing' ? 'Syncing...' : 'Sync'}
+            </Button>
+          )}
+          {!user && !authLoading && (
+            <GoogleSignInButton />
+          )}
+          <Link to="/settings">
+            <Button variant="ghost" size="sm" className="font-mono text-muted-foreground hover:text-foreground">
+              {APP_VERSION}
+            </Button>
+          </Link>
         </div>
 
         {/* Sync Status */}
