@@ -74,6 +74,7 @@ export function PracticeChart({ data, timeRange }: PracticeChartProps) {
             interval="preserveStartEnd"
           />
           <YAxis
+            domain={['dataMin', 'dataMax']}
             tickFormatter={formatYAxis}
             axisLine={false}
             tickLine={false}
