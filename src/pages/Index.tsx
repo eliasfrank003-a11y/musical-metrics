@@ -15,7 +15,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Piano } from 'lucide-react';
 
-const APP_VERSION = 'v1';
+const APP_VERSION = 'v2';
 
 type TimeRange = '1W' | '1M' | '1Y' | 'ALL';
 
