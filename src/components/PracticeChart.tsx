@@ -56,12 +56,20 @@ export function PracticeChart({ data, timeRange }: PracticeChartProps) {
   };
 
   const formatTooltipValue = (value: number) => {
-    const h = Math.floor(value);
-    const m = Math.round((value - h) * 60);
-    if (h === 0 && m === 0) return '0m';
-    if (h === 0) return `${m}m`;
-    if (m === 0) return `${h}h`;
-    return `${h}h ${m}m`;
+    const totalSeconds = Math.round(value * 3600);
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = totalSeconds % 60;
+    
+    // Always show H:mm:ss for consistency with Y-axis when range is small
+    if (range < 1) {
+      return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    }
+    
+    // For larger ranges, show readable format with seconds
+    if (h === 0 && m === 0) return `${s}s`;
+    if (h === 0) return `${m}m ${s}s`;
+    return `${h}h ${m}m ${s}s`;
   };
 
   if (data.length === 0) {
