@@ -1,10 +1,10 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { FileUpload } from '@/components/FileUpload';
 import { MetricDisplay } from '@/components/MetricDisplay';
 import { TimeRangeSelector } from '@/components/TimeRangeSelector';
 import { PracticeChart } from '@/components/PracticeChart';
 import { StatsFooter } from '@/components/StatsFooter';
-import { parseCSV } from '@/lib/csvParser';
+import { parseCSV, PracticeSession } from '@/lib/csvParser';
 import {
   calculateAnalytics,
   filterDataByRange,
@@ -13,9 +13,10 @@ import {
   AnalyticsResult,
 } from '@/lib/practiceAnalytics';
 import { useToast } from '@/hooks/use-toast';
-import { Piano, Settings } from 'lucide-react';
+import { Piano, Settings, RefreshCw } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { supabase } from '@/integrations/supabase/client';
 
 const APP_VERSION = 'v4';
 
@@ -24,8 +25,51 @@ type TimeRange = '1W' | '1M' | '1Y' | 'ALL';
 const Index = () => {
   const [analytics, setAnalytics] = useState<AnalyticsResult | null>(null);
   const [timeRange, setTimeRange] = useState<TimeRange>('ALL');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+
+  // Fetch data from Supabase
+  const fetchData = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('practice_sessions')
+        .select('*')
+        .order('started_at', { ascending: true });
+
+      if (error) throw error;
+
+      if (!data || data.length === 0) {
+        setAnalytics(null);
+        return;
+      }
+
+      // Convert Supabase data to PracticeSession format
+      const sessions: PracticeSession[] = data.map(row => ({
+        taskName: 'Practice',
+        startTime: new Date(row.started_at),
+        endTime: new Date(new Date(row.started_at).getTime() + row.duration_seconds * 1000),
+        duration: '',
+        durationInHours: row.duration_seconds / 3600,
+      }));
+
+      const result = calculateAnalytics(sessions);
+      setAnalytics(result);
+    } catch (error) {
+      toast({
+        title: 'Error loading data',
+        description: error instanceof Error ? error.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [toast]);
+
+  // Load data on mount
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const handleFileLoad = useCallback((content: string) => {
     setIsLoading(true);
@@ -92,6 +136,9 @@ const Index = () => {
               <span className="text-xs text-muted-foreground bg-secondary px-2 py-1 rounded-md">
                 {APP_VERSION}
               </span>
+              <Button variant="ghost" size="icon" onClick={fetchData} disabled={isLoading}>
+                <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
+              </Button>
               <Button variant="ghost" size="icon" asChild>
                 <Link to="/settings">
                   <Settings className="w-5 h-5" />
@@ -103,17 +150,25 @@ const Index = () => {
       </header>
 
       <main className="container max-w-4xl mx-auto px-4 py-8">
-        {!analytics ? (
+        {isLoading ? (
+          <div className="flex items-center justify-center py-20">
+            <RefreshCw className="w-8 h-8 animate-spin text-muted-foreground" />
+          </div>
+        ) : !analytics ? (
           <div className="max-w-md mx-auto">
             <div className="text-center mb-8">
               <h2 className="text-2xl font-bold text-foreground mb-2">
-                Track Your Progress
+                No Practice Data Yet
               </h2>
               <p className="text-muted-foreground">
-                Upload your practice data to see your lifetime daily average unfold like a stock chart.
+                Go to Settings to import your practice data from a CSV file.
               </p>
             </div>
-            <FileUpload onFileLoad={handleFileLoad} isLoading={isLoading} />
+            <div className="flex justify-center">
+              <Button asChild>
+                <Link to="/settings">Go to Settings</Link>
+              </Button>
+            </div>
           </div>
         ) : (
           <div className="space-y-6">
