@@ -24,7 +24,7 @@ export function PracticeChart({ data, timeRange }: PracticeChartProps) {
         d.date, 
         timeRange === '1W' ? 'EEE' : 
         timeRange === '1M' ? 'MMM d' : 
-        'MMM yyyy'
+        "MMM ''yy"  // e.g., "Feb '24"
       ),
       averageHours: d.cumulativeAverage,
     }));
