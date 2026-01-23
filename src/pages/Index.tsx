@@ -93,22 +93,33 @@ const Index = () => {
     fetchData();
   }, [fetchData]);
 
-  // Auto-sync calendar on page load if connected
+  // Auto-sync calendar on page load if connected (only once)
   useEffect(() => {
+    let cancelled = false;
+    
     const autoSync = async () => {
-      if (isConnected && syncState.status !== 'syncing' && syncState.status !== 'checking') {
-        const hasNewData = await syncCalendar(true);
-        if (hasNewData) {
-          // Refresh data after sync
+      // Only run if connected and not already syncing
+      if (!isConnected || syncState.status === 'syncing' || syncState.status === 'checking') {
+        return;
+      }
+      
+      try {
+        const hasNewData = await syncCalendar(false); // Silent sync on auto
+        if (!cancelled && hasNewData) {
           await fetchData();
         }
+      } catch (error) {
+        console.error('[Index] Auto-sync error:', error);
       }
     };
     
     // Small delay to let auth state settle
-    const timer = setTimeout(autoSync, 1000);
-    return () => clearTimeout(timer);
-  }, [isConnected]); // Only run when connection status changes
+    const timer = setTimeout(autoSync, 1500);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [isConnected, syncCalendar, fetchData]); // Proper dependencies but sync only triggers on connection change
 
   const handleFileLoad = useCallback((content: string) => {
     setIsLoading(true);
