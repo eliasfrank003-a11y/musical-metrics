@@ -13,7 +13,9 @@ import {
   AnalyticsResult,
 } from '@/lib/practiceAnalytics';
 import { useToast } from '@/hooks/use-toast';
-import { Piano } from 'lucide-react';
+import { Piano, Settings } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
 
 const APP_VERSION = 'v4';
 
@@ -86,9 +88,16 @@ const Index = () => {
                 <p className="text-xs text-muted-foreground">Your musical journey, visualized</p>
               </div>
             </div>
-            <span className="text-xs text-muted-foreground bg-secondary px-2 py-1 rounded-md">
-              {APP_VERSION}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground bg-secondary px-2 py-1 rounded-md">
+                {APP_VERSION}
+              </span>
+              <Button variant="ghost" size="icon" asChild>
+                <Link to="/settings">
+                  <Settings className="w-5 h-5" />
+                </Link>
+              </Button>
+            </div>
           </div>
         </div>
       </header>
