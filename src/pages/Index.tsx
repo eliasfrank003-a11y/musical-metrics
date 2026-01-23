@@ -13,12 +13,13 @@ import {
   AnalyticsResult,
 } from '@/lib/practiceAnalytics';
 import { useToast } from '@/hooks/use-toast';
-import { Piano, Settings, RefreshCw } from 'lucide-react';
+import { Piano, Settings, RefreshCw, Calendar } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
+import { useGoogleCalendarSync } from '@/hooks/useGoogleCalendarSync';
 
-const APP_VERSION = 'v4';
+const APP_VERSION = 'v5';
 
 type TimeRange = '1W' | '1M' | '1Y' | 'ALL';
 
@@ -27,6 +28,7 @@ const Index = () => {
   const [timeRange, setTimeRange] = useState<TimeRange>('ALL');
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  const { syncState, isConnected, syncCalendar, connectGoogle } = useGoogleCalendarSync();
 
   // Fetch all data from Supabase (paginated to avoid 1000 row limit)
   const fetchData = useCallback(async () => {
@@ -83,10 +85,27 @@ const Index = () => {
     }
   }, [toast]);
 
-  // Load data on mount
+  // Load data on mount and after calendar sync
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Auto-sync calendar on page load if connected
+  useEffect(() => {
+    const autoSync = async () => {
+      if (isConnected && syncState.status !== 'syncing' && syncState.status !== 'checking') {
+        const hasNewData = await syncCalendar(true);
+        if (hasNewData) {
+          // Refresh data after sync
+          await fetchData();
+        }
+      }
+    };
+    
+    // Small delay to let auth state settle
+    const timer = setTimeout(autoSync, 1000);
+    return () => clearTimeout(timer);
+  }, [isConnected]); // Only run when connection status changes
 
   const handleFileLoad = useCallback((content: string) => {
     setIsLoading(true);
@@ -153,6 +172,42 @@ const Index = () => {
               <span className="text-xs text-muted-foreground bg-secondary px-2 py-1 rounded-md">
                 {APP_VERSION}
               </span>
+              
+              {/* Calendar sync indicator */}
+              {isConnected ? (
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={async () => {
+                    const hasNewData = await syncCalendar(true);
+                    if (hasNewData) await fetchData();
+                  }}
+                  disabled={syncState.status === 'syncing' || syncState.status === 'checking'}
+                  className="relative"
+                  title="Sync Google Calendar"
+                >
+                  <Calendar className={`w-5 h-5 ${
+                    syncState.status === 'syncing' || syncState.status === 'checking' 
+                      ? 'animate-pulse' 
+                      : ''
+                  }`} />
+                  {syncState.status === 'success' && syncState.syncedCount > 0 && (
+                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-primary text-primary-foreground text-[10px] rounded-full flex items-center justify-center">
+                      {syncState.syncedCount > 9 ? '9+' : syncState.syncedCount}
+                    </span>
+                  )}
+                </Button>
+              ) : (
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  onClick={connectGoogle}
+                  title="Connect Google Calendar"
+                >
+                  <Calendar className="w-5 h-5 text-muted-foreground" />
+                </Button>
+              )}
+              
               <Button variant="ghost" size="icon" onClick={fetchData} disabled={isLoading}>
                 <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
               </Button>

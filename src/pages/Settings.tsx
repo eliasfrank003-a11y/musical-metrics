@@ -1,7 +1,8 @@
 import { CsvImporter } from '@/components/CsvImporter';
+import { GoogleCalendarStatus } from '@/components/GoogleCalendarStatus';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Database, Trash2 } from 'lucide-react';
+import { ArrowLeft, Database, Trash2, Calendar } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -67,7 +68,17 @@ const Settings = () => {
         </div>
       </header>
 
-      <main className="container max-w-4xl mx-auto px-4 py-8 space-y-6">
+      <main className="container max-w-4xl mx-auto px-4 py-8 space-y-8">
+        {/* Google Calendar Section */}
+        <section>
+          <h2 className="text-sm font-medium text-muted-foreground mb-4 flex items-center gap-2">
+            <Calendar className="w-4 h-4" />
+            Calendar Integration
+          </h2>
+          
+          <GoogleCalendarStatus variant="full" />
+        </section>
+
         {/* Data Management Section */}
         <section>
           <h2 className="text-sm font-medium text-muted-foreground mb-4 flex items-center gap-2">
