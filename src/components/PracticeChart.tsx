@@ -40,22 +40,17 @@ export function PracticeChart({ data, timeRange }: PracticeChartProps) {
     const m = Math.floor((totalSeconds % 3600) / 60);
     const s = totalSeconds % 60;
 
-    // If range is less than 1 minute, show H:mm:ss
-    if (range < 1 / 60) {
+    // If range is less than 10 minutes, always show H:mm:ss for maximum precision
+    if (range < 10 / 60) {
       return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
     }
     
-    // If range is less than 10 minutes, show H:mm
-    if (range < 10 / 60) {
-      return `${h}:${m.toString().padStart(2, '0')}`;
-    }
-    
-    // If range is less than 1 hour, show Hh Mm
+    // If range is less than 1 hour, show H:mm:ss to catch minute-level changes
     if (range < 1) {
-      return `${h}h ${m}m`;
+      return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
     }
     
-    // Default: show hours
+    // Default: show Hh Mm for larger ranges
     if (m === 0) return `${h}h`;
     return `${h}h ${m}m`;
   };
