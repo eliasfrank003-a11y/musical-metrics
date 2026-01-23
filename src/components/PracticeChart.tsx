@@ -25,12 +25,39 @@ export function PracticeChart({ data, timeRange }: PracticeChartProps) {
     }));
   }, [data, timeRange]);
 
+  // Calculate the data range to determine formatting precision
+  const { minValue, maxValue, range } = useMemo(() => {
+    if (chartData.length === 0) return { minValue: 0, maxValue: 0, range: 0 };
+    const values = chartData.map(d => d.averageHours);
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    return { minValue: min, maxValue: max, range: max - min };
+  }, [chartData]);
+
   const formatYAxis = (value: number) => {
-    const h = Math.floor(value);
-    const m = Math.round((value - h) * 60);
-    if (h === 0) return `${m}m`;
+    const totalSeconds = Math.round(value * 3600);
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = totalSeconds % 60;
+
+    // If range is less than 1 minute, show H:mm:ss
+    if (range < 1 / 60) {
+      return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    }
+    
+    // If range is less than 10 minutes, show H:mm
+    if (range < 10 / 60) {
+      return `${h}:${m.toString().padStart(2, '0')}`;
+    }
+    
+    // If range is less than 1 hour, show Hh Mm
+    if (range < 1) {
+      return `${h}h ${m}m`;
+    }
+    
+    // Default: show hours
     if (m === 0) return `${h}h`;
-    return `${h}h`;
+    return `${h}h ${m}m`;
   };
 
   const formatTooltipValue = (value: number) => {
@@ -75,12 +102,14 @@ export function PracticeChart({ data, timeRange }: PracticeChartProps) {
           />
           <YAxis
             domain={['dataMin', 'dataMax']}
+            tickCount={5}
+            allowDecimals={true}
             tickFormatter={formatYAxis}
             axisLine={false}
             tickLine={false}
             tick={{ fill: 'hsl(215 20% 55%)', fontSize: 12 }}
             dx={-10}
-            width={50}
+            width={70}
           />
           <Tooltip
             content={({ active, payload }) => {
