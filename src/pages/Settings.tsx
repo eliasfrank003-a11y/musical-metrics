@@ -1,27 +1,18 @@
-import { CsvImporter } from '@/components/CsvImporter';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Database, Trash2, Palette } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { ArrowLeft, Trash2, Palette } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
 
 const Settings = () => {
-  const navigate = useNavigate();
   const { toast } = useToast();
   const [isClearing, setIsClearing] = useState(false);
   const [passcode, setPasscode] = useState('');
   const [showPasscodeInput, setShowPasscodeInput] = useState(false);
-
-  const handleImportComplete = () => {
-    toast({
-      title: 'Data imported!',
-      description: 'Return to dashboard to see your updated charts.'
-    });
-  };
 
   const handleClearData = async () => {
     if (!showPasscodeInput) {
@@ -106,16 +97,9 @@ const Settings = () => {
         </section>
 
 
-        {/* Data Management Section */}
+        {/* Danger Zone Section */}
         <section>
-          <h2 className="text-sm font-medium text-muted-foreground mb-4 flex items-center gap-2">
-            <Database className="w-4 h-4" />
-            Data Management
-          </h2>
-          
           <div className="space-y-4">
-            {/* CSV Importer */}
-            <CsvImporter onImportComplete={handleImportComplete} />
 
             {/* Danger Zone */}
             <Card className="border-destructive/50">
