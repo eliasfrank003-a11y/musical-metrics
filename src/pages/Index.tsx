@@ -182,7 +182,7 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         {/* Header */}
-        <div className="flex flex-col items-end mb-8 gap-1">
+        <div className="flex flex-col items-end mb-8">
           <Link to="/settings">
             <Button variant="ghost" size="sm" className="font-mono text-muted-foreground hover:text-foreground">
               {APP_VERSION}
@@ -190,11 +190,10 @@ const Index = () => {
           </Link>
           <Button
             variant="ghost"
-            size="icon"
+            size="sm"
             onClick={handleManualSync}
             disabled={isSyncing}
-            className="h-8 w-8"
-            style={{ color: '#FFFFFF' }}
+            className="text-muted-foreground hover:text-foreground -mt-1"
           >
             <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
           </Button>
