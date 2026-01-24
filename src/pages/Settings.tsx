@@ -3,17 +3,20 @@ import { GoogleCalendarStatus } from '@/components/GoogleCalendarStatus';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { ArrowLeft, Database, Trash2, Calendar, Palette } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
-import { useAuth } from '@/hooks/useAuth';
+
 const Settings = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isClearing, setIsClearing] = useState(false);
-  const { user } = useAuth();
+  const [passcode, setPasscode] = useState('');
+  const [showPasscodeInput, setShowPasscodeInput] = useState(false);
+
   const handleImportComplete = () => {
     toast({
       title: 'Data imported!',
@@ -22,33 +25,36 @@ const Settings = () => {
   };
 
   const handleClearData = async () => {
-    if (!user) {
+    if (!showPasscodeInput) {
+      setShowPasscodeInput(true);
+      return;
+    }
+
+    if (!passcode.trim()) {
       toast({
-        title: 'Error',
-        description: 'You must be signed in to clear data',
+        title: 'Passcode required',
+        description: 'Please enter the passcode to delete data',
         variant: 'destructive'
       });
       return;
     }
 
-    if (!confirm('Are you sure you want to delete ALL your practice sessions? This cannot be undone.')) {
-      return;
-    }
-
     setIsClearing(true);
     try {
-      // RLS will automatically filter to only the user's sessions
-      const { error } = await supabase
-        .from('practice_sessions')
-        .delete()
-        .eq('user_id', user.id);
+      const { data, error } = await supabase.functions.invoke('delete-all-sessions', {
+        body: { passcode: passcode.trim() },
+      });
 
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
 
       toast({
         title: 'Data cleared',
-        description: 'All your practice sessions have been deleted.'
+        description: 'All practice sessions have been deleted.'
       });
+      
+      setPasscode('');
+      setShowPasscodeInput(false);
     } catch (error) {
       toast({
         title: 'Error',
@@ -132,14 +138,36 @@ const Settings = () => {
                   Permanently delete all your practice data
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                <Button 
-                  variant="destructive" 
-                  onClick={handleClearData}
-                  disabled={isClearing}
-                >
-                  {isClearing ? 'Clearing...' : 'Clear All Data'}
-                </Button>
+              <CardContent className="space-y-3">
+                {showPasscodeInput && (
+                  <Input
+                    type="password"
+                    placeholder="Enter passcode"
+                    value={passcode}
+                    onChange={(e) => setPasscode(e.target.value)}
+                    className="max-w-xs"
+                  />
+                )}
+                <div className="flex gap-2">
+                  <Button 
+                    variant="destructive" 
+                    onClick={handleClearData}
+                    disabled={isClearing}
+                  >
+                    {isClearing ? 'Clearing...' : showPasscodeInput ? 'Confirm Delete' : 'Clear All Data'}
+                  </Button>
+                  {showPasscodeInput && (
+                    <Button 
+                      variant="outline" 
+                      onClick={() => {
+                        setShowPasscodeInput(false);
+                        setPasscode('');
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  )}
+                </div>
               </CardContent>
             </Card>
           </div>

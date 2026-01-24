@@ -21,7 +21,6 @@ export type Database = {
           id: number
           source: string
           started_at: string
-          user_id: string | null
         }
         Insert: {
           created_at?: string
@@ -29,7 +28,6 @@ export type Database = {
           id?: number
           source?: string
           started_at: string
-          user_id?: string | null
         }
         Update: {
           created_at?: string
@@ -37,7 +35,6 @@ export type Database = {
           id?: number
           source?: string
           started_at?: string
-          user_id?: string | null
         }
         Relationships: []
       }

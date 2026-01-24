@@ -5,7 +5,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Upload, CheckCircle, AlertCircle, FileText } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/hooks/useAuth';
 interface ImportProgress {
   current: number;
   total: number;
@@ -122,7 +121,6 @@ export function CsvImporter({ onImportComplete }: CsvImporterProps) {
   });
   const [isDragging, setIsDragging] = useState(false);
   const { toast } = useToast();
-  const { user } = useAuth();
 
   const parseCSV = useCallback((content: string): ParsedSession[] => {
     const lines = content.split(/\r?\n/).filter(line => line.trim());
@@ -174,10 +172,6 @@ export function CsvImporter({ onImportComplete }: CsvImporterProps) {
   }, []);
 
   const importToDatabase = useCallback(async (sessions: ParsedSession[]) => {
-    if (!user) {
-      throw new Error('You must be signed in to import data');
-    }
-
     const BATCH_SIZE = 50;
     const total = sessions.length;
     
@@ -189,10 +183,7 @@ export function CsvImporter({ onImportComplete }: CsvImporterProps) {
     });
 
     for (let i = 0; i < total; i += BATCH_SIZE) {
-      const batch = sessions.slice(i, i + BATCH_SIZE).map(session => ({
-        ...session,
-        user_id: user.id, // Include user_id for RLS
-      }));
+      const batch = sessions.slice(i, i + BATCH_SIZE);
       
       const { error } = await supabase
         .from('practice_sessions')
@@ -220,7 +211,7 @@ export function CsvImporter({ onImportComplete }: CsvImporterProps) {
       status: 'complete',
       message: `Successfully imported ${total} sessions!`
     });
-  }, [user]);
+  }, []);
 
   const handleFile = useCallback(async (file: File) => {
     if (!file.name.endsWith('.csv')) {
