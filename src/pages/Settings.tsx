@@ -51,7 +51,7 @@ const Settings = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pt-[env(safe-area-inset-top)]">
       {/* Header */}
       <header className="border-b border-border">
         <div className="container max-w-4xl mx-auto px-4 py-4">
