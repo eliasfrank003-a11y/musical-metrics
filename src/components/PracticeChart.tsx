@@ -137,9 +137,9 @@ export function PracticeChart({ data, timeRange }: PracticeChartProps) {
   };
 
   return (
-    <div className="w-full h-72 md:h-80">
+    <div className="w-full h-72 md:h-80 relative">
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={chartData} margin={{ top: 20, right: 5, left: 0, bottom: 20 }}>
+        <LineChart data={chartData} margin={{ top: 20, right: 0, left: 0, bottom: 20 }}>
           <XAxis
             dataKey="displayDate"
             axisLine={false}
@@ -148,6 +148,7 @@ export function PracticeChart({ data, timeRange }: PracticeChartProps) {
             dy={10}
             ticks={xAxisTicks?.map(i => chartData[i]?.displayDate)}
             interval={0}
+            tickMargin={-30}
           />
           <YAxis
             domain={['dataMin', 'dataMax']}
