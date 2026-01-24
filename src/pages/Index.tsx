@@ -184,7 +184,7 @@ const Index = () => {
         {/* Header */}
         <div className="flex flex-col items-end mb-8">
           <Link to="/settings">
-            <Button variant="ghost" size="sm" className="font-mono text-muted-foreground hover:text-foreground">
+            <Button variant="ghost" size="sm" className="font-mono" style={{ color: '#595A5F' }}>
               {APP_VERSION}
             </Button>
           </Link>
