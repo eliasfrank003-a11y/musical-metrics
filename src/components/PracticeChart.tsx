@@ -250,7 +250,7 @@ export function PracticeChart({ data, timeRange, onHover }: PracticeChartProps) 
               type="linear"
               dataKey="averageHours"
               stroke={COLORS.unreached}
-              strokeWidth={2}
+              strokeWidth={2.5}
               dot={false}
               activeDot={false}
               clipPath="url(#uncoloredClip)"
@@ -263,7 +263,7 @@ export function PracticeChart({ data, timeRange, onHover }: PracticeChartProps) 
             type="linear"
             dataKey="averageHours"
             stroke={lineColor}
-            strokeWidth={2}
+            strokeWidth={2.5}
             dot={false}
             activeDot={renderActiveDot}
             clipPath={activeIndex !== null ? "url(#coloredClip)" : undefined}
