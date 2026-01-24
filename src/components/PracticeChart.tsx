@@ -24,11 +24,18 @@ export function PracticeChart({ data, timeRange }: PracticeChartProps) {
         d.date, 
         timeRange === '1W' ? 'd. MMM' : 
         timeRange === '1M' ? 'd. MMM' : 
-        "MMM ''yy"
+        'MMM yy'
       ),
       averageHours: d.cumulativeAverage,
     }));
   }, [data, timeRange]);
+
+  // Calculate tick indices to show exactly 5 ticks
+  const xAxisTicks = useMemo(() => {
+    if (chartData.length <= 5) return undefined;
+    const step = (chartData.length - 1) / 4;
+    return [0, 1, 2, 3, 4].map(i => Math.round(i * step));
+  }, [chartData.length]);
 
   // Calculate the data range to determine formatting precision
   const { minValue, maxValue, range, baselineValue } = useMemo(() => {
@@ -132,14 +139,15 @@ export function PracticeChart({ data, timeRange }: PracticeChartProps) {
   return (
     <div className="w-full h-72 md:h-80">
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={chartData} margin={{ top: 20, right: 50, left: 0, bottom: 20 }}>
+        <LineChart data={chartData} margin={{ top: 20, right: 5, left: 0, bottom: 20 }}>
           <XAxis
             dataKey="displayDate"
             axisLine={false}
             tickLine={false}
             tick={{ fill: mutedColor, fontSize: 13 }}
             dy={10}
-            interval="preserveStartEnd"
+            ticks={xAxisTicks?.map(i => chartData[i]?.displayDate)}
+            interval={0}
           />
           <YAxis
             domain={['dataMin', 'dataMax']}
