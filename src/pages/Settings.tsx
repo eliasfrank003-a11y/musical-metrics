@@ -8,12 +8,12 @@ import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
-
+import { useAuth } from '@/hooks/useAuth';
 const Settings = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isClearing, setIsClearing] = useState(false);
-
+  const { user } = useAuth();
   const handleImportComplete = () => {
     toast({
       title: 'Data imported!',
@@ -22,22 +22,32 @@ const Settings = () => {
   };
 
   const handleClearData = async () => {
-    if (!confirm('Are you sure you want to delete ALL practice sessions? This cannot be undone.')) {
+    if (!user) {
+      toast({
+        title: 'Error',
+        description: 'You must be signed in to clear data',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    if (!confirm('Are you sure you want to delete ALL your practice sessions? This cannot be undone.')) {
       return;
     }
 
     setIsClearing(true);
     try {
+      // RLS will automatically filter to only the user's sessions
       const { error } = await supabase
         .from('practice_sessions')
         .delete()
-        .neq('id', 0); // Delete all rows
+        .eq('user_id', user.id);
 
       if (error) throw error;
 
       toast({
         title: 'Data cleared',
-        description: 'All practice sessions have been deleted.'
+        description: 'All your practice sessions have been deleted.'
       });
     } catch (error) {
       toast({
