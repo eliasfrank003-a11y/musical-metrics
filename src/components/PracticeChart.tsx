@@ -82,11 +82,52 @@ export function PracticeChart({ data, timeRange }: PracticeChartProps) {
     );
   }
 
+  // Trade Republic colors
+  const positiveColor = '#00CC66';
+  const negativeColor = '#FC4236';
+  const mutedColor = '#7F8494';
+
   // Determine line color based on trend (last value vs first value)
   const lastValue = chartData[chartData.length - 1]?.averageHours || 0;
   const firstValue = chartData[0]?.averageHours || 0;
   const isPositiveTrend = lastValue >= firstValue;
-  const lineColor = isPositiveTrend ? 'hsl(142 76% 46%)' : 'hsl(0 84% 60%)';
+  const lineColor = isPositiveTrend ? positiveColor : negativeColor;
+
+  // Custom active dot with glow effect
+  const renderActiveDot = (props: any) => {
+    const { cx, cy, payload } = props;
+    const isAboveBaseline = payload.averageHours >= baselineValue;
+    const dotColor = isAboveBaseline ? positiveColor : negativeColor;
+    
+    return (
+      <g>
+        {/* Outer glow */}
+        <circle
+          cx={cx}
+          cy={cy}
+          r={20}
+          fill={dotColor}
+          opacity={0.15}
+        />
+        {/* Middle glow */}
+        <circle
+          cx={cx}
+          cy={cy}
+          r={12}
+          fill={dotColor}
+          opacity={0.3}
+        />
+        {/* Inner dot */}
+        <circle
+          cx={cx}
+          cy={cy}
+          r={6}
+          fill={dotColor}
+          stroke="none"
+        />
+      </g>
+    );
+  };
 
   return (
     <div className="w-full h-72 md:h-80">
@@ -96,7 +137,7 @@ export function PracticeChart({ data, timeRange }: PracticeChartProps) {
             dataKey="displayDate"
             axisLine={false}
             tickLine={false}
-            tick={{ fill: 'hsl(215 20% 45%)', fontSize: 13 }}
+            tick={{ fill: mutedColor, fontSize: 13 }}
             dy={10}
             interval="preserveStartEnd"
           />
@@ -107,18 +148,20 @@ export function PracticeChart({ data, timeRange }: PracticeChartProps) {
             tickFormatter={formatYAxis}
             axisLine={false}
             tickLine={false}
-            tick={{ fill: 'hsl(215 20% 45%)', fontSize: 13 }}
+            tick={{ fill: mutedColor, fontSize: 13 }}
             orientation="right"
             dx={10}
             width={60}
           />
           <ReferenceLine
             y={baselineValue}
-            stroke="hsl(215 20% 30%)"
+            stroke={mutedColor}
             strokeDasharray="2 4"
             strokeWidth={1}
+            strokeOpacity={0.5}
           />
           <Tooltip
+            cursor={false}
             content={({ active, payload }) => {
               if (active && payload && payload.length) {
                 const data = payload[0].payload as DailyData;
@@ -145,12 +188,7 @@ export function PracticeChart({ data, timeRange }: PracticeChartProps) {
             stroke={lineColor}
             strokeWidth={2}
             dot={false}
-            activeDot={{
-              r: 5,
-              fill: lineColor,
-              stroke: 'hsl(var(--background))',
-              strokeWidth: 2,
-            }}
+            activeDot={renderActiveDot}
           />
         </LineChart>
       </ResponsiveContainer>
