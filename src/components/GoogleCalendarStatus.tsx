@@ -1,7 +1,9 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calendar, Check, RefreshCw, AlertCircle, Link2, Link2Off } from 'lucide-react';
+import { Calendar, Check, RefreshCw, AlertCircle, Link2, Link2Off, User } from 'lucide-react';
 import { useGoogleCalendarSync } from '@/hooks/useGoogleCalendarSync';
+import { useAuth } from '@/hooks/useAuth';
+import { GoogleSignInButton } from '@/components/GoogleSignInButton';
 
 interface GoogleCalendarStatusProps {
   variant?: 'compact' | 'full';
@@ -16,6 +18,12 @@ export function GoogleCalendarStatus({ variant = 'full', onSyncComplete }: Googl
     connectGoogle, 
     disconnectGoogle 
   } = useGoogleCalendarSync();
+  
+  const { user } = useAuth();
+  
+  // Determine if synced (success status or idle with lastSyncTime)
+  const isSynced = syncState.status === 'success' || (syncState.status === 'idle' && syncState.lastSyncTime);
+  const isSyncing = syncState.status === 'syncing' || syncState.status === 'checking';
 
   const handleSync = async () => {
     const hasNewData = await syncCalendar(true);
@@ -77,87 +85,89 @@ export function GoogleCalendarStatus({ variant = 'full', onSyncComplete }: Googl
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Connection Status */}
-        <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
-          <div className="flex items-center gap-3">
-            {isConnected ? (
-              <>
-                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Check className="w-4 h-4 text-primary" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium">Connected</p>
-                  <p className="text-xs text-muted-foreground">
-                    Syncing from ATracker calendar
-                  </p>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
-                  <Link2Off className="w-4 h-4 text-muted-foreground" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium">Not Connected</p>
-                  <p className="text-xs text-muted-foreground">
-                    Connect your Google account to sync calendar data
-                  </p>
-                </div>
-              </>
-            )}
-          </div>
-          
-          {isConnected ? (
-            <Button variant="outline" size="sm" onClick={disconnectGoogle}>
-              Disconnect
-            </Button>
-          ) : (
-            <Button size="sm" onClick={connectGoogle}>
-              <Link2 className="w-4 h-4 mr-2" />
-              Connect
-            </Button>
-          )}
-        </div>
-
-        {/* Sync Status */}
-        {isConnected && (
-          <div className="space-y-3">
-            {/* Status Message */}
-            {syncState.message && (
-              <div className={`flex items-center gap-2 text-sm ${
-                syncState.status === 'error' 
-                  ? 'text-destructive' 
-                  : 'text-muted-foreground'
-              }`}>
-                {syncState.status === 'error' && <AlertCircle className="w-4 h-4" />}
-                {syncState.status === 'success' && <Check className="w-4 h-4 text-primary" />}
-                {(syncState.status === 'syncing' || syncState.status === 'checking') && (
-                  <RefreshCw className="w-4 h-4 animate-spin" />
+        {/* Google Account Status */}
+        {user ? (
+          <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                {user.user_metadata?.avatar_url ? (
+                  <img 
+                    src={user.user_metadata.avatar_url} 
+                    alt="Profile" 
+                    className="w-10 h-10 rounded-full"
+                  />
+                ) : (
+                  <User className="w-5 h-5 text-primary" />
                 )}
-                <span>{syncState.message}</span>
               </div>
-            )}
+              <div>
+                <p className="text-sm font-medium">{user.user_metadata?.full_name || 'Google Account'}</p>
+                <p className="text-xs text-muted-foreground">{user.email}</p>
+              </div>
+            </div>
+            <Button variant="outline" size="sm" onClick={disconnectGoogle}>
+              Sign Out
+            </Button>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+                <User className="w-5 h-5 text-muted-foreground" />
+              </div>
+              <div>
+                <p className="text-sm font-medium">Not Signed In</p>
+                <p className="text-xs text-muted-foreground">
+                  Sign in with Google to sync calendar data
+                </p>
+              </div>
+            </div>
+            <GoogleSignInButton className="h-9" />
+          </div>
+        )}
 
-            {/* Last Sync Info */}
-            {syncState.lastSyncTime && (
-              <p className="text-xs text-muted-foreground">
-                Last synced: {syncState.lastSyncTime.toLocaleTimeString()}
-              </p>
-            )}
-
-            {/* Manual Sync Button */}
+        {/* Sync Status with Visual Indicator */}
+        {user && isConnected && (
+          <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/30">
+            <div className="flex items-center gap-3">
+              {/* Sync Status Indicator */}
+              <div className="relative">
+                <div className={`w-3 h-3 rounded-full ${
+                  isSyncing ? 'bg-primary animate-pulse' :
+                  isSynced ? 'bg-green-500' : 
+                  syncState.status === 'error' ? 'bg-destructive' :
+                  'bg-amber-500'
+                }`} />
+                {isSynced && !isSyncing && (
+                  <div className="absolute inset-0 w-3 h-3 rounded-full bg-green-500 animate-ping opacity-75" />
+                )}
+              </div>
+              <div>
+                <p className="text-sm font-medium">
+                  {isSyncing ? 'Syncing...' :
+                   isSynced ? 'Up to date' :
+                   syncState.status === 'error' ? 'Sync failed' :
+                   'Not synced'}
+                </p>
+                {syncState.lastSyncTime && (
+                  <p className="text-xs text-muted-foreground">
+                    Last synced: {syncState.lastSyncTime.toLocaleString()}
+                  </p>
+                )}
+                {syncState.status === 'error' && syncState.message && (
+                  <p className="text-xs text-destructive">{syncState.message}</p>
+                )}
+              </div>
+            </div>
             <Button 
               variant="outline" 
+              size="sm"
               onClick={handleSync}
-              disabled={syncState.status === 'syncing' || syncState.status === 'checking'}
-              className="w-full"
+              disabled={isSyncing}
+              className="gap-2"
             >
-              <RefreshCw className={`w-4 h-4 mr-2 ${
-                syncState.status === 'syncing' || syncState.status === 'checking' 
-                  ? 'animate-spin' 
-                  : ''
-              }`} />
-              {syncState.status === 'syncing' ? 'Syncing...' : 'Sync Now'}
+              <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
+              {isSyncing ? 'Syncing' : 'Sync Now'}
             </Button>
           </div>
         )}
