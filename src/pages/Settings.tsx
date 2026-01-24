@@ -1,8 +1,9 @@
 import { CsvImporter } from '@/components/CsvImporter';
 import { GoogleCalendarStatus } from '@/components/GoogleCalendarStatus';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Database, Trash2, Calendar } from 'lucide-react';
+import { ArrowLeft, Database, Trash2, Calendar, Palette } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -69,6 +70,26 @@ const Settings = () => {
       </header>
 
       <main className="container max-w-4xl mx-auto px-4 py-8 space-y-8">
+        {/* Appearance Section */}
+        <section>
+          <h2 className="text-sm font-medium text-muted-foreground mb-4 flex items-center gap-2">
+            <Palette className="w-4 h-4" />
+            Appearance
+          </h2>
+          
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Theme</CardTitle>
+              <CardDescription>
+                Choose between light and dark mode
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ThemeToggle />
+            </CardContent>
+          </Card>
+        </section>
+
         {/* Google Calendar Section */}
         <section>
           <h2 className="text-sm font-medium text-muted-foreground mb-4 flex items-center gap-2">
