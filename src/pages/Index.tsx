@@ -206,15 +206,15 @@ const Index = () => {
           </div>
         ) : analytics ? (
           <div className="space-y-6">
-            {/* Time Range Selector */}
-            <TimeRangeSelector selectedRange={timeRange} onRangeChange={setTimeRange} />
-
             {/* Metric Display */}
             <MetricDisplay
               currentAverage={analytics.currentAverage}
               delta={delta.value}
               isPositive={delta.value >= 0}
             />
+
+            {/* Time Range Selector */}
+            <TimeRangeSelector selectedRange={timeRange} onRangeChange={setTimeRange} />
 
             {/* Chart */}
             <PracticeChart data={filteredData} timeRange={timeRange} />

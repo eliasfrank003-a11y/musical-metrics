@@ -1,12 +1,12 @@
 import { useMemo } from 'react';
 import {
-  AreaChart,
-  Area,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   Tooltip,
   ResponsiveContainer,
-  CartesianGrid,
+  ReferenceLine,
 } from 'recharts';
 import { format } from 'date-fns';
 import { DailyData } from '@/lib/practiceAnalytics';
@@ -22,21 +22,23 @@ export function PracticeChart({ data, timeRange }: PracticeChartProps) {
       ...d,
       displayDate: format(
         d.date, 
-        timeRange === '1W' ? 'EEE' : 
-        timeRange === '1M' ? 'MMM d' : 
-        "MMM ''yy"  // e.g., "Feb '24"
+        timeRange === '1W' ? 'd. MMM' : 
+        timeRange === '1M' ? 'd. MMM' : 
+        "MMM ''yy"
       ),
       averageHours: d.cumulativeAverage,
     }));
   }, [data, timeRange]);
 
   // Calculate the data range to determine formatting precision
-  const { minValue, maxValue, range } = useMemo(() => {
-    if (chartData.length === 0) return { minValue: 0, maxValue: 0, range: 0 };
+  const { minValue, maxValue, range, baselineValue } = useMemo(() => {
+    if (chartData.length === 0) return { minValue: 0, maxValue: 0, range: 0, baselineValue: 0 };
     const values = chartData.map(d => d.averageHours);
     const min = Math.min(...values);
     const max = Math.max(...values);
-    return { minValue: min, maxValue: max, range: max - min };
+    // Baseline is the first value in the range
+    const baseline = chartData[0]?.averageHours || 0;
+    return { minValue: min, maxValue: max, range: max - min, baselineValue: baseline };
   }, [chartData]);
 
   const formatYAxis = (value: number) => {
@@ -45,17 +47,14 @@ export function PracticeChart({ data, timeRange }: PracticeChartProps) {
     const m = Math.floor((totalSeconds % 3600) / 60);
     const s = totalSeconds % 60;
 
-    // If range is less than 10 minutes, always show H:mm:ss for maximum precision
     if (range < 10 / 60) {
       return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
     }
     
-    // If range is less than 1 hour, show H:mm:ss to catch minute-level changes
     if (range < 1) {
       return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
     }
     
-    // Default: show Hh Mm for larger ranges
     if (m === 0) return `${h}h`;
     return `${h}h ${m}m`;
   };
@@ -66,12 +65,10 @@ export function PracticeChart({ data, timeRange }: PracticeChartProps) {
     const m = Math.floor((totalSeconds % 3600) / 60);
     const s = totalSeconds % 60;
     
-    // Always show H:mm:ss for consistency with Y-axis when range is small
     if (range < 1) {
       return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
     }
     
-    // For larger ranges, show readable format with seconds
     if (h === 0 && m === 0) return `${s}s`;
     if (h === 0) return `${m}m ${s}s`;
     return `${h}h ${m}m ${s}s`;
@@ -85,39 +82,41 @@ export function PracticeChart({ data, timeRange }: PracticeChartProps) {
     );
   }
 
+  // Determine line color based on trend (last value vs first value)
+  const lastValue = chartData[chartData.length - 1]?.averageHours || 0;
+  const firstValue = chartData[0]?.averageHours || 0;
+  const isPositiveTrend = lastValue >= firstValue;
+  const lineColor = isPositiveTrend ? 'hsl(142 76% 46%)' : 'hsl(0 84% 60%)';
+
   return (
-    <div className="w-full h-64 md:h-80">
+    <div className="w-full h-72 md:h-80">
       <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-          <defs>
-            <linearGradient id="colorAverage" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="hsl(142 76% 46%)" stopOpacity={0.3} />
-              <stop offset="95%" stopColor="hsl(142 76% 46%)" stopOpacity={0} />
-            </linearGradient>
-          </defs>
-          <CartesianGrid
-            strokeDasharray="3 3"
-            stroke="hsl(220 14% 16%)"
-            vertical={false}
-          />
+        <LineChart data={chartData} margin={{ top: 20, right: 50, left: 0, bottom: 20 }}>
           <XAxis
             dataKey="displayDate"
             axisLine={false}
             tickLine={false}
-            tick={{ fill: 'hsl(215 20% 55%)', fontSize: 12 }}
+            tick={{ fill: 'hsl(215 20% 45%)', fontSize: 13 }}
             dy={10}
             interval="preserveStartEnd"
           />
           <YAxis
             domain={['dataMin', 'dataMax']}
-            tickCount={5}
+            tickCount={4}
             allowDecimals={true}
             tickFormatter={formatYAxis}
             axisLine={false}
             tickLine={false}
-            tick={{ fill: 'hsl(215 20% 55%)', fontSize: 12 }}
-            dx={-10}
-            width={70}
+            tick={{ fill: 'hsl(215 20% 45%)', fontSize: 13 }}
+            orientation="right"
+            dx={10}
+            width={60}
+          />
+          <ReferenceLine
+            y={baselineValue}
+            stroke="hsl(215 20% 30%)"
+            strokeDasharray="2 4"
+            strokeWidth={1}
           />
           <Tooltip
             content={({ active, payload }) => {
@@ -140,21 +139,20 @@ export function PracticeChart({ data, timeRange }: PracticeChartProps) {
               return null;
             }}
           />
-          <Area
-            type="monotone"
+          <Line
+            type="linear"
             dataKey="averageHours"
-            stroke="hsl(142 76% 46%)"
+            stroke={lineColor}
             strokeWidth={2}
-            fill="url(#colorAverage)"
             dot={false}
             activeDot={{
-              r: 6,
-              fill: 'hsl(142 76% 46%)',
-              stroke: 'hsl(220 18% 7%)',
+              r: 5,
+              fill: lineColor,
+              stroke: 'hsl(var(--background))',
               strokeWidth: 2,
             }}
           />
-        </AreaChart>
+        </LineChart>
       </ResponsiveContainer>
     </div>
   );

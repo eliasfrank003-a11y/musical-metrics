@@ -1,9 +1,11 @@
-import { TrendingUp, TrendingDown } from 'lucide-react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
+
 interface MetricDisplayProps {
   currentAverage: number;
   delta: number;
   isPositive: boolean;
 }
+
 export function MetricDisplay({
   currentAverage,
   delta,
@@ -23,32 +25,39 @@ export function MetricDisplay({
     if (s > 0 || parts.length === 0) parts.push(`${s}s`);
     return parts.join(' ');
   };
-  const formatDelta = (hours: number): string => {
+
+  const formatDeltaPercent = (hours: number): string => {
     const totalSeconds = Math.round(Math.abs(hours) * 3600);
     const m = Math.floor(totalSeconds / 60);
     const s = totalSeconds % 60;
     if (m === 0 && s === 0) {
       return '0s';
     }
-    const signPrefix = hours >= 0 ? '+' : '-';
     if (m === 0) {
-      return `${signPrefix}${s}s`;
+      return `${s}s`;
     }
     if (s === 0) {
-      return `${signPrefix}${m}m`;
+      return `${m}m`;
     }
-    return `${signPrefix}${m}m ${s}s`;
+    return `${m}m ${s}s`;
   };
-  return <div className="flex flex-col items-center justify-center py-8">
-      
-      <div className="flex items-baseline gap-4">
-        <h1 className="text-6xl font-bold tracking-tight text-foreground text-center md:text-3xl">
+
+  return (
+    <div className="flex flex-col items-start py-4">
+      <span className="text-sm text-muted-foreground mb-1">Daily Average</span>
+      <div className="flex items-center gap-3">
+        <h1 className="text-4xl font-bold tracking-tight text-foreground">
           {formatHoursMinutes(currentAverage)}
         </h1>
-        <div className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-medium ${isPositive ? 'bg-chart-positive/10 text-chart-positive' : delta === 0 ? 'bg-secondary text-muted-foreground' : 'bg-chart-negative/10 text-chart-negative'}`}>
-          {delta !== 0 && (isPositive ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />)}
-          <span>{formatDelta(delta)}</span>
+        <div className={`flex items-center gap-0.5 text-base font-medium ${
+          isPositive ? 'text-chart-positive' : delta === 0 ? 'text-muted-foreground' : 'text-chart-negative'
+        }`}>
+          {delta !== 0 && (
+            isPositive ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />
+          )}
+          <span>{formatDeltaPercent(delta)}</span>
         </div>
       </div>
-    </div>;
+    </div>
+  );
 }
