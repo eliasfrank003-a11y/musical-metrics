@@ -18,7 +18,7 @@ type TimeRange = '1W' | '1M' | '6M' | '1Y' | 'ALL';
 
 const Index = () => {
   const [analytics, setAnalytics] = useState<AnalyticsResult | null>(null);
-  const [timeRange, setTimeRange] = useState<TimeRange>('ALL');
+  const [timeRange, setTimeRange] = useState<TimeRange>('1M');
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const { syncState, syncCalendar, isSyncing } = useCalendarSync();

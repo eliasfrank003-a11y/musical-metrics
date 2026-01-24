@@ -1,10 +1,9 @@
 import { CsvImporter } from '@/components/CsvImporter';
-import { CalendarSyncStatus } from '@/components/CalendarSyncStatus';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Database, Trash2, Calendar, Palette } from 'lucide-react';
+import { ArrowLeft, Database, Trash2, Palette } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -106,15 +105,6 @@ const Settings = () => {
           </Card>
         </section>
 
-        {/* Google Calendar Section */}
-        <section>
-          <h2 className="text-sm font-medium text-muted-foreground mb-4 flex items-center gap-2">
-            <Calendar className="w-4 h-4" />
-            Calendar Integration
-          </h2>
-          
-          <CalendarSyncStatus variant="full" />
-        </section>
 
         {/* Data Management Section */}
         <section>
