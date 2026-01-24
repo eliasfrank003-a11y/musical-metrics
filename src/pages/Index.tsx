@@ -5,7 +5,7 @@ import { TimeRangeSelector } from '@/components/TimeRangeSelector';
 import { PracticeChart } from '@/components/PracticeChart';
 import { StatsFooter } from '@/components/StatsFooter';
 import { parseCSV, PracticeSession } from '@/lib/csvParser';
-import { calculateAnalytics, filterDataByRange, downsampleData, calculateDelta, AnalyticsResult } from '@/lib/practiceAnalytics';
+import { calculateAnalytics, filterDataByRange, downsampleData, calculateDelta, AnalyticsResult, DailyData } from '@/lib/practiceAnalytics';
 import { useToast } from '@/hooks/use-toast';
 import { Piano, Settings, RefreshCw } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -20,6 +20,7 @@ const Index = () => {
   const [analytics, setAnalytics] = useState<AnalyticsResult | null>(null);
   const [timeRange, setTimeRange] = useState<TimeRange>('1M');
   const [isLoading, setIsLoading] = useState(true);
+  const [hoveredData, setHoveredData] = useState<DailyData | null>(null);
   const { toast } = useToast();
   const { syncState, syncCalendar, isSyncing } = useCalendarSync();
 
@@ -211,13 +212,18 @@ const Index = () => {
               currentAverage={analytics.currentAverage}
               delta={delta.value}
               isPositive={delta.value >= 0}
+              hoveredData={hoveredData}
             />
 
             {/* Time Range Selector */}
             <TimeRangeSelector selectedRange={timeRange} onRangeChange={setTimeRange} />
 
             {/* Chart */}
-            <PracticeChart data={filteredData} timeRange={timeRange} />
+            <PracticeChart 
+              data={filteredData} 
+              timeRange={timeRange} 
+              onHover={setHoveredData}
+            />
 
             {/* Footer Stats */}
             <StatsFooter
