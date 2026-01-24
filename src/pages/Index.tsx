@@ -13,7 +13,6 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useGoogleCalendarSync } from '@/hooks/useGoogleCalendarSync';
 import { useAuth } from '@/hooks/useAuth';
-import { GoogleSignInButton } from '@/components/GoogleSignInButton';
 const APP_VERSION = 'v5';
 type TimeRange = '1W' | '1M' | '6M' | '1Y' | 'ALL';
 const Index = () => {
@@ -181,9 +180,6 @@ const Index = () => {
               <RefreshCw className={`w-4 h-4 ${syncState.status === 'syncing' ? 'animate-spin' : ''}`} />
               {syncState.status === 'syncing' ? 'Syncing...' : 'Sync'}
             </Button>
-          )}
-          {!user && !authLoading && (
-            <GoogleSignInButton />
           )}
           <Link to="/settings">
             <Button variant="ghost" size="sm" className="font-mono text-muted-foreground hover:text-foreground">
