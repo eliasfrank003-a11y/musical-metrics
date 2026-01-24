@@ -193,7 +193,8 @@ const Index = () => {
             size="sm"
             onClick={handleManualSync}
             disabled={isSyncing}
-            className={`-mt-1 ${isSyncing ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+            className="-mt-1 disabled:opacity-100 text-inherit hover:text-inherit active:text-inherit focus-visible:text-inherit"
+            style={{ color: isSyncing ? '#FFFFFF' : '#595A5F' }}
           >
             <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
           </Button>
