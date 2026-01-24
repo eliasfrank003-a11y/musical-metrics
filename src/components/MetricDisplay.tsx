@@ -2,6 +2,14 @@ import { ChevronDown, ChevronUp } from 'lucide-react';
 import { DailyData } from '@/lib/practiceAnalytics';
 import { format } from 'date-fns';
 
+// Trade Republic exact colors
+const COLORS = {
+  positive: '#09C651',
+  negative: '#FD4136',
+  muted: '#595A5F',
+  white: '#FFFFFF',
+};
+
 interface MetricDisplayProps {
   currentAverage: number;
   delta: number;
@@ -49,22 +57,29 @@ export function MetricDisplay({
   // Determine display values based on hover state
   const displayValue = hoveredData ? hoveredData.cumulativeAverage : currentAverage;
   const displayLabel = hoveredData 
-    ? format(hoveredData.date, 'd. MMM · HH:mm')
+    ? `${format(hoveredData.date, 'd MMM')} · Day ${hoveredData.dayNumber}`
     : 'Daily Average';
 
   return (
     <div className="flex flex-col items-start py-4">
-      <span className="text-sm text-muted-foreground mb-1 transition-all duration-150">
+      <span 
+        className="text-sm mb-1 transition-all duration-150"
+        style={{ color: COLORS.muted }}
+      >
         {displayLabel}
       </span>
       <div className="flex items-center gap-3">
-        <h1 className="text-4xl font-bold tracking-tight text-foreground transition-all duration-150">
+        <h1 
+          className="text-4xl font-bold tracking-tight transition-all duration-150"
+          style={{ color: COLORS.white }}
+        >
           {formatHoursMinutes(displayValue)}
         </h1>
         {!hoveredData && (
-          <div className={`flex items-center gap-0.5 text-base font-medium ${
-            isPositive ? 'text-chart-positive' : delta === 0 ? 'text-muted-foreground' : 'text-chart-negative'
-          }`}>
+          <div 
+            className="flex items-center gap-0.5 text-base font-medium"
+            style={{ color: delta === 0 ? COLORS.muted : (isPositive ? COLORS.positive : COLORS.negative) }}
+          >
             {delta !== 0 && (
               isPositive ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />
             )}
