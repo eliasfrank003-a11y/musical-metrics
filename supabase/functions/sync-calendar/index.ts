@@ -17,6 +17,88 @@ interface SyncResult {
   synced: number;
   latestTimestamp: string | null;
   message: string;
+  error?: string;
+}
+
+// Google Service Account JWT generation
+async function getServiceAccountAccessToken(serviceAccountJson: string): Promise<string> {
+  const serviceAccount = JSON.parse(serviceAccountJson);
+  
+  const now = Math.floor(Date.now() / 1000);
+  const exp = now + 3600; // 1 hour
+
+  const header = {
+    alg: "RS256",
+    typ: "JWT",
+  };
+
+  const payload = {
+    iss: serviceAccount.client_email,
+    scope: "https://www.googleapis.com/auth/calendar.readonly",
+    aud: "https://oauth2.googleapis.com/token",
+    iat: now,
+    exp: exp,
+  };
+
+  // Base64URL encode
+  const base64UrlEncode = (obj: object): string => {
+    const json = JSON.stringify(obj);
+    const base64 = btoa(json);
+    return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  };
+
+  const headerEncoded = base64UrlEncode(header);
+  const payloadEncoded = base64UrlEncode(payload);
+  const unsignedToken = `${headerEncoded}.${payloadEncoded}`;
+
+  // Import the private key and sign
+  const privateKeyPem = serviceAccount.private_key;
+  const pemContents = privateKeyPem
+    .replace(/-----BEGIN PRIVATE KEY-----/, "")
+    .replace(/-----END PRIVATE KEY-----/, "")
+    .replace(/\n/g, "");
+  
+  const binaryKey = Uint8Array.from(atob(pemContents), (c) => c.charCodeAt(0));
+
+  const cryptoKey = await crypto.subtle.importKey(
+    "pkcs8",
+    binaryKey,
+    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+
+  const signature = await crypto.subtle.sign(
+    "RSASSA-PKCS1-v1_5",
+    cryptoKey,
+    new TextEncoder().encode(unsignedToken)
+  );
+
+  const signatureBase64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+
+  const jwt = `${unsignedToken}.${signatureBase64}`;
+
+  // Exchange JWT for access token
+  const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+      assertion: jwt,
+    }),
+  });
+
+  if (!tokenResponse.ok) {
+    const errorText = await tokenResponse.text();
+    console.error("[sync-calendar] Token exchange failed:", errorText);
+    throw new Error(`Failed to get access token: ${tokenResponse.status}`);
+  }
+
+  const tokenData = await tokenResponse.json();
+  return tokenData.access_token;
 }
 
 Deno.serve(async (req) => {
@@ -26,24 +108,38 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { accessToken, calendarId } = await req.json();
+    // Get service account credentials and calendar ID from secrets
+    const serviceAccountJson = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_JSON");
+    const calendarId = Deno.env.get("GOOGLE_CALENDAR_ID");
 
-    if (!accessToken) {
+    if (!serviceAccountJson) {
+      console.error("[sync-calendar] Missing GOOGLE_SERVICE_ACCOUNT_JSON secret");
       return new Response(
-        JSON.stringify({ error: "Missing Google access token" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ error: "Server configuration error: Missing service account" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Default to "ATracker" calendar or use provided calendarId
-    const targetCalendarId = calendarId || "primary";
+    if (!calendarId) {
+      console.error("[sync-calendar] Missing GOOGLE_CALENDAR_ID secret");
+      return new Response(
+        JSON.stringify({ error: "Server configuration error: Missing calendar ID" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log("[sync-calendar] Starting sync with service account...");
+
+    // Get access token using service account
+    const accessToken = await getServiceAccountAccessToken(serviceAccountJson);
+    console.log("[sync-calendar] Successfully obtained access token");
 
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get the latest session from the database (we'll derive an end time)
+    // Get the latest session from the database
     const { data: latestSession, error: latestError } = await supabase
       .from("practice_sessions")
       .select("started_at, duration_seconds")
@@ -52,7 +148,7 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (latestError) {
-      console.error("Error fetching latest session:", latestError);
+      console.error("[sync-calendar] Error fetching latest session:", latestError);
       throw new Error("Failed to fetch latest session from database");
     }
 
@@ -66,57 +162,19 @@ Deno.serve(async (req) => {
       : null;
 
     console.log(
-      `[sync-google-calendar] Latest session in DB: started_at=${latestTimestamp} duration_seconds=${latestDurationSeconds} derived_end=${latestEndTimeMs ? new Date(latestEndTimeMs).toISOString() : null}`
+      `[sync-calendar] Latest session: started_at=${latestTimestamp} derived_end=${latestEndTimeMs ? new Date(latestEndTimeMs).toISOString() : null}`
     );
-
-    // First, find the ATracker calendar
-    let calendarToUse = targetCalendarId;
-    
-    if (targetCalendarId === "primary" || targetCalendarId === "ATracker") {
-      // List all calendars to find ATracker
-      const calendarsResponse = await fetch(
-        "https://www.googleapis.com/calendar/v3/users/me/calendarList",
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }
-      );
-
-      if (!calendarsResponse.ok) {
-        const errorText = await calendarsResponse.text();
-        console.error("Calendar list error:", errorText);
-        throw new Error(`Failed to list calendars: ${calendarsResponse.status}`);
-      }
-
-      const calendarsData = await calendarsResponse.json();
-      const aTrackerCalendar = calendarsData.items?.find(
-        (cal: { summary: string; id: string }) => 
-          cal.summary?.toLowerCase() === "atracker" || 
-          cal.summary?.toLowerCase().includes("atracker")
-      );
-
-      if (aTrackerCalendar) {
-        calendarToUse = aTrackerCalendar.id;
-        console.log(`[sync-google-calendar] Found ATracker calendar: ${calendarToUse}`);
-      } else {
-        console.log("[sync-google-calendar] ATracker calendar not found, using primary");
-        calendarToUse = "primary";
-      }
-    }
 
     // Build the Google Calendar API URL
     const calendarApiUrl = new URL(
-      `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarToUse)}/events`
+      `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`
     );
     
-    // Only fetch events after the latest *end* time.
-    // Google Calendar's timeMin filter matches events whose time range overlaps the window,
-    // so using started_at can cause the latest event to be returned forever.
+    // Only fetch events after the latest end time
     if (latestEndTimeMs) {
       calendarApiUrl.searchParams.set(
         "timeMin",
-        new Date(latestEndTimeMs + 1000).toISOString() // +1s to avoid boundary re-fetch
+        new Date(latestEndTimeMs + 1000).toISOString()
       );
     }
     
@@ -124,25 +182,23 @@ Deno.serve(async (req) => {
     calendarApiUrl.searchParams.set("orderBy", "startTime");
     calendarApiUrl.searchParams.set("maxResults", "2500");
 
-    console.log(`[sync-google-calendar] Fetching events from: ${calendarApiUrl.toString()}`);
+    console.log(`[sync-calendar] Fetching events from calendar: ${calendarId}`);
 
     // Fetch events from Google Calendar
     const eventsResponse = await fetch(calendarApiUrl.toString(), {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
+      headers: { Authorization: `Bearer ${accessToken}` },
     });
 
     if (!eventsResponse.ok) {
       const errorText = await eventsResponse.text();
-      console.error("Calendar API error:", errorText);
+      console.error("[sync-calendar] Calendar API error:", errorText);
       throw new Error(`Failed to fetch calendar events: ${eventsResponse.status}`);
     }
 
     const eventsData = await eventsResponse.json();
     const events: CalendarEvent[] = eventsData.items || [];
 
-    console.log(`[sync-google-calendar] Found ${events.length} events to process`);
+    console.log(`[sync-calendar] Found ${events.length} events to process`);
 
     if (events.length === 0) {
       return new Response(
@@ -157,10 +213,7 @@ Deno.serve(async (req) => {
 
     // Transform calendar events to practice sessions
     const potentialSessions = events
-      .filter((event) => {
-        // Must have both start and end times (not all-day events without time)
-        return event.start?.dateTime && event.end?.dateTime;
-      })
+      .filter((event) => event.start?.dateTime && event.end?.dateTime)
       .map((event) => {
         const startTime = new Date(event.start.dateTime!);
         const endTime = new Date(event.end.dateTime!);
@@ -174,20 +227,20 @@ Deno.serve(async (req) => {
       })
       .filter((session) => session.duration_seconds > 0);
 
-    console.log(`[sync-google-calendar] ${potentialSessions.length} valid sessions to check for duplicates`);
+    console.log(`[sync-calendar] ${potentialSessions.length} valid sessions to check`);
 
     if (potentialSessions.length === 0) {
       return new Response(
         JSON.stringify({
           synced: 0,
           latestTimestamp,
-          message: "No valid practice sessions found in calendar events",
+          message: "No valid practice sessions found",
         } as SyncResult),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Check for duplicates by started_at (across *all* sources)
+    // Check for duplicates by started_at
     const startedAtTimestamps = potentialSessions.map(s => s.started_at);
     const { data: existingSessions, error: existingError } = await supabase
       .from("practice_sessions")
@@ -195,33 +248,27 @@ Deno.serve(async (req) => {
       .in("started_at", startedAtTimestamps);
 
     if (existingError) {
-      console.error("Error checking for duplicates:", existingError);
+      console.error("[sync-calendar] Error checking duplicates:", existingError);
       throw new Error("Failed to check for duplicate sessions");
     }
 
-    // Normalize timestamps to epoch milliseconds to avoid format differences like
-    // "2026-01-23T18:30:50+00:00" vs "2026-01-23T18:30:50.000Z".
     const existingStartMs = new Set(
       (existingSessions || []).map((s) => new Date(s.started_at).getTime())
     );
 
-    // Filter out duplicates
     const newSessions = potentialSessions.filter((session) => {
       const ms = new Date(session.started_at).getTime();
       return !existingStartMs.has(ms);
     });
 
-    const duplicatesSkipped = potentialSessions.length - newSessions.length;
-    console.log(
-      `[sync-google-calendar] ${newSessions.length} new sessions after deduplication (${duplicatesSkipped} duplicates skipped)`
-    );
+    console.log(`[sync-calendar] ${newSessions.length} new sessions after deduplication`);
 
     if (newSessions.length === 0) {
       return new Response(
         JSON.stringify({
           synced: 0,
           latestTimestamp,
-          message: "All events already synced (no new sessions)",
+          message: "All events already synced",
         } as SyncResult),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -238,7 +285,7 @@ Deno.serve(async (req) => {
         .insert(batch);
 
       if (insertError) {
-        console.error("Insert error:", insertError);
+        console.error("[sync-calendar] Insert error:", insertError);
         throw new Error(`Failed to insert sessions: ${insertError.message}`);
       }
 
@@ -259,13 +306,13 @@ Deno.serve(async (req) => {
       message: `Successfully synced ${insertedCount} new practice sessions`,
     };
 
-    console.log(`[sync-google-calendar] Sync complete:`, result);
+    console.log(`[sync-calendar] Sync complete:`, result);
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
-    console.error("[sync-google-calendar] Error:", error);
+    console.error("[sync-calendar] Error:", error);
     return new Response(
       JSON.stringify({ 
         error: error instanceof Error ? error.message : "Unknown error",

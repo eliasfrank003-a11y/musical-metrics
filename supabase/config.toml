@@ -1,6 +1,6 @@
 project_id = "wcfmxbmehvhrkgeaidkk"
 
-[functions.sync-google-calendar]
+[functions.sync-calendar]
 verify_jwt = false
 
 [functions.delete-all-sessions]

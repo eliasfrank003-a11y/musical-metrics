@@ -1,5 +1,5 @@
 import { CsvImporter } from '@/components/CsvImporter';
-import { GoogleCalendarStatus } from '@/components/GoogleCalendarStatus';
+import { CalendarSyncStatus } from '@/components/CalendarSyncStatus';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -113,7 +113,7 @@ const Settings = () => {
             Calendar Integration
           </h2>
           
-          <GoogleCalendarStatus variant="full" />
+          <CalendarSyncStatus variant="full" />
         </section>
 
         {/* Data Management Section */}
