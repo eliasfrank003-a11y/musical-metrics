@@ -173,16 +173,14 @@ export function calculateDelta(data: DailyData[]): { value: number; percentage: 
 }
 
 /**
- * Format hours as "Xh:Ym:Zs" string with colons
+ * Format hours as "Xh Ym" string
  */
 export function formatHoursMinutes(hours: number): string {
-  const totalSeconds = Math.round(hours * 3600);
-  const h = Math.floor(totalSeconds / 3600);
-  const m = Math.floor((totalSeconds % 3600) / 60);
-  const s = totalSeconds % 60;
+  const totalMinutes = Math.round(hours * 60);
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
   
-  // Use colon format: 1045:30:10
-  return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  return `${h}h ${m}m`;
 }
 
 /**
