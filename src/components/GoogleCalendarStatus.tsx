@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calendar, Check, RefreshCw, AlertCircle, Link2, Link2Off, User } from 'lucide-react';
+import { Calendar, RefreshCw, User } from 'lucide-react';
 import { useGoogleCalendarSync } from '@/hooks/useGoogleCalendarSync';
 import { useAuth } from '@/hooks/useAuth';
 import { GoogleSignInButton } from '@/components/GoogleSignInButton';
@@ -20,10 +20,6 @@ export function GoogleCalendarStatus({ variant = 'full', onSyncComplete }: Googl
   } = useGoogleCalendarSync();
   
   const { user } = useAuth();
-  
-  // Determine if synced (success status or idle with lastSyncTime)
-  const isSynced = syncState.status === 'success' || (syncState.status === 'idle' && syncState.lastSyncTime);
-  const isSyncing = syncState.status === 'syncing' || syncState.status === 'checking';
 
   const handleSync = async () => {
     const hasNewData = await syncCalendar(true);
@@ -89,7 +85,7 @@ export function GoogleCalendarStatus({ variant = 'full', onSyncComplete }: Googl
         {user ? (
           <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
                 {user.user_metadata?.avatar_url ? (
                   <img 
                     src={user.user_metadata.avatar_url} 
@@ -123,52 +119,6 @@ export function GoogleCalendarStatus({ variant = 'full', onSyncComplete }: Googl
               </div>
             </div>
             <GoogleSignInButton className="h-9" />
-          </div>
-        )}
-
-        {/* Sync Status with Visual Indicator */}
-        {user && isConnected && (
-          <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/30">
-            <div className="flex items-center gap-3">
-              {/* Sync Status Indicator */}
-              <div className="relative">
-                <div className={`w-3 h-3 rounded-full ${
-                  isSyncing ? 'bg-primary animate-pulse' :
-                  isSynced ? 'bg-green-500' : 
-                  syncState.status === 'error' ? 'bg-destructive' :
-                  'bg-amber-500'
-                }`} />
-                {isSynced && !isSyncing && (
-                  <div className="absolute inset-0 w-3 h-3 rounded-full bg-green-500 animate-ping opacity-75" />
-                )}
-              </div>
-              <div>
-                <p className="text-sm font-medium">
-                  {isSyncing ? 'Syncing...' :
-                   isSynced ? 'Up to date' :
-                   syncState.status === 'error' ? 'Sync failed' :
-                   'Not synced'}
-                </p>
-                {syncState.lastSyncTime && (
-                  <p className="text-xs text-muted-foreground">
-                    Last synced: {syncState.lastSyncTime.toLocaleString()}
-                  </p>
-                )}
-                {syncState.status === 'error' && syncState.message && (
-                  <p className="text-xs text-destructive">{syncState.message}</p>
-                )}
-              </div>
-            </div>
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={handleSync}
-              disabled={isSyncing}
-              className="gap-2"
-            >
-              <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
-              {isSyncing ? 'Syncing' : 'Sync Now'}
-            </Button>
           </div>
         )}
 

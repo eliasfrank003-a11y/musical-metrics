@@ -7,7 +7,7 @@ import { StatsFooter } from '@/components/StatsFooter';
 import { parseCSV, PracticeSession } from '@/lib/csvParser';
 import { calculateAnalytics, filterDataByRange, downsampleData, calculateDelta, AnalyticsResult } from '@/lib/practiceAnalytics';
 import { useToast } from '@/hooks/use-toast';
-import { Piano, Settings, RefreshCw, Calendar } from 'lucide-react';
+import { Piano, Settings, RefreshCw } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
@@ -164,8 +164,37 @@ const Index = () => {
       delta
     };
   }, [analytics, timeRange]);
+  const handleManualSync = async () => {
+    try {
+      const hasNewData = await syncCalendar(false); // Silent sync, we'll show our own toast
+      if (hasNewData) {
+        await fetchData();
+        // Show quick toast with synced info
+        const totalMinutes = Math.round((syncState.syncedCount || 1) * 30); // Estimate based on average session
+        toast({
+          title: `${syncState.syncedCount || 'New'} session${syncState.syncedCount !== 1 ? 's' : ''} synced`,
+          description: syncState.syncedCount ? `Added to your practice history` : 'Calendar is up to date',
+          duration: 2000, // Quick disappear
+        });
+      } else {
+        toast({
+          title: 'Already up to date',
+          description: 'No new sessions found',
+          duration: 2000,
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Sync failed',
+        description: error instanceof Error ? error.message : 'Unknown error',
+        variant: 'destructive',
+        duration: 3000,
+      });
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pt-[env(safe-area-inset-top)]">
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         {/* Header */}
         <div className="flex items-center justify-end mb-8 gap-2">
@@ -173,7 +202,7 @@ const Index = () => {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => syncCalendar(true).then((hasNew) => hasNew && fetchData())}
+              onClick={handleManualSync}
               disabled={syncState.status === 'syncing'}
               className="gap-2"
             >
@@ -187,19 +216,6 @@ const Index = () => {
             </Button>
           </Link>
         </div>
-
-        {/* Sync Status */}
-        {user && syncState.status !== 'idle' && syncState.status !== 'checking' && (
-          <div className={`mb-4 p-3 rounded-lg text-sm flex items-center gap-2 ${
-            syncState.status === 'success' ? 'bg-green-500/10 text-green-500' :
-            syncState.status === 'error' ? 'bg-destructive/10 text-destructive' :
-            syncState.status === 'not_connected' ? 'bg-muted text-muted-foreground' :
-            'bg-primary/10 text-primary'
-          }`}>
-            <Calendar className="w-4 h-4" />
-            {syncState.message}
-          </div>
-        )}
 
         {/* Main Content */}
         {isLoading ? (
