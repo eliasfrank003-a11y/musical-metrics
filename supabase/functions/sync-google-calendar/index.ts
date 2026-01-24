@@ -26,38 +26,6 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Authenticate the user first
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return new Response(
-        JSON.stringify({ error: "Missing authorization header" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
-    // Create client with user's auth token to verify identity
-    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-
-    // Verify the user by getting their profile
-    const { data: { user }, error: userError } = await supabaseAuth.auth.getUser();
-    
-    if (userError || !user) {
-      console.error("[sync-google-calendar] Auth error:", userError);
-      return new Response(
-        JSON.stringify({ error: "Unauthorized" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const userId = user.id;
-    console.log(`[sync-google-calendar] Authenticated user: ${userId}`);
-
     const { accessToken, calendarId } = await req.json();
 
     if (!accessToken) {
@@ -70,14 +38,15 @@ Deno.serve(async (req) => {
     // Default to "ATracker" calendar or use provided calendarId
     const targetCalendarId = calendarId || "primary";
 
-    // Use service role client for database operations
+    // Initialize Supabase client
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get the latest session from the database for this user
+    // Get the latest session from the database (we'll derive an end time)
     const { data: latestSession, error: latestError } = await supabase
       .from("practice_sessions")
       .select("started_at, duration_seconds")
-      .eq("user_id", userId)
       .order("started_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -142,10 +111,12 @@ Deno.serve(async (req) => {
     );
     
     // Only fetch events after the latest *end* time.
+    // Google Calendar's timeMin filter matches events whose time range overlaps the window,
+    // so using started_at can cause the latest event to be returned forever.
     if (latestEndTimeMs) {
       calendarApiUrl.searchParams.set(
         "timeMin",
-        new Date(latestEndTimeMs + 1000).toISOString()
+        new Date(latestEndTimeMs + 1000).toISOString() // +1s to avoid boundary re-fetch
       );
     }
     
@@ -184,9 +155,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Transform calendar events to practice sessions (include user_id)
+    // Transform calendar events to practice sessions
     const potentialSessions = events
       .filter((event) => {
+        // Must have both start and end times (not all-day events without time)
         return event.start?.dateTime && event.end?.dateTime;
       })
       .map((event) => {
@@ -198,7 +170,6 @@ Deno.serve(async (req) => {
           started_at: startTime.toISOString(),
           duration_seconds: durationSeconds,
           source: "google_calendar",
-          user_id: userId, // Include user_id for RLS
         };
       })
       .filter((session) => session.duration_seconds > 0);
@@ -216,12 +187,11 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Check for duplicates by started_at for this user
+    // Check for duplicates by started_at (across *all* sources)
     const startedAtTimestamps = potentialSessions.map(s => s.started_at);
     const { data: existingSessions, error: existingError } = await supabase
       .from("practice_sessions")
       .select("started_at")
-      .eq("user_id", userId)
       .in("started_at", startedAtTimestamps);
 
     if (existingError) {
@@ -229,6 +199,8 @@ Deno.serve(async (req) => {
       throw new Error("Failed to check for duplicate sessions");
     }
 
+    // Normalize timestamps to epoch milliseconds to avoid format differences like
+    // "2026-01-23T18:30:50+00:00" vs "2026-01-23T18:30:50.000Z".
     const existingStartMs = new Set(
       (existingSessions || []).map((s) => new Date(s.started_at).getTime())
     );
@@ -273,11 +245,10 @@ Deno.serve(async (req) => {
       insertedCount += batch.length;
     }
 
-    // Get the new latest timestamp for this user
+    // Get the new latest timestamp
     const { data: newLatest } = await supabase
       .from("practice_sessions")
       .select("started_at")
-      .eq("user_id", userId)
       .order("started_at", { ascending: false })
       .limit(1)
       .maybeSingle();
