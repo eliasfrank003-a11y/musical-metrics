@@ -83,6 +83,10 @@ export function calculateAnalytics(sessions: PracticeSession[]): AnalyticsResult
   };
 }
 
+// Visual start date to hide early volatility in the chart
+// The math still calculates from the true start, but display begins here
+const VISUAL_START_DATE = new Date('2024-03-01');
+
 /**
  * Filter data by time range
  */
@@ -91,13 +95,17 @@ export function filterDataByRange(
   range: '1W' | '1M' | '6M' | '1Y' | 'ALL',
   endDate: Date
 ): DailyData[] {
-  if (range === 'ALL' || data.length === 0) {
+  if (data.length === 0) {
     return data;
   }
   
   let startDate: Date;
   
   switch (range) {
+    case 'ALL':
+      // For ALL view, start from the visual start date to hide early volatility
+      startDate = VISUAL_START_DATE;
+      break;
     case '1W':
       startDate = subDays(endDate, 7);
       break;
@@ -114,7 +122,13 @@ export function filterDataByRange(
       return data;
   }
   
-  return data.filter(d => d.date >= startDate && d.date <= endDate);
+  // Filter by calculated start date, but also ensure we don't show before VISUAL_START_DATE
+  // for longer ranges (1Y, 6M, ALL) where early volatility would be visible
+  const effectiveStartDate = range === '1W' || range === '1M' 
+    ? startDate 
+    : new Date(Math.max(startDate.getTime(), VISUAL_START_DATE.getTime()));
+  
+  return data.filter(d => d.date >= effectiveStartDate && d.date <= endDate);
 }
 
 /**
