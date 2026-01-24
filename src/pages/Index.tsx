@@ -11,27 +11,17 @@ import { Piano, Settings, RefreshCw } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
-import { useGoogleCalendarSync } from '@/hooks/useGoogleCalendarSync';
-import { useAuth } from '@/hooks/useAuth';
-const APP_VERSION = 'v5';
+import { useCalendarSync } from '@/hooks/useCalendarSync';
+
+const APP_VERSION = 'v6';
 type TimeRange = '1W' | '1M' | '6M' | '1Y' | 'ALL';
+
 const Index = () => {
   const [analytics, setAnalytics] = useState<AnalyticsResult | null>(null);
   const [timeRange, setTimeRange] = useState<TimeRange>('ALL');
   const [isLoading, setIsLoading] = useState(true);
-  const {
-    toast
-  } = useToast();
-  const {
-    syncState,
-    isConnected,
-    syncCalendar,
-    connectGoogle
-  } = useGoogleCalendarSync();
-  const {
-    user,
-    isLoading: authLoading
-  } = useAuth();
+  const { toast } = useToast();
+  const { syncState, syncCalendar, isSyncing } = useCalendarSync();
 
   // Fetch all data from Supabase (paginated to avoid 1000 row limit)
   const fetchData = useCallback(async () => {
@@ -89,16 +79,12 @@ const Index = () => {
     fetchData();
   }, [fetchData]);
 
-  // Auto-sync calendar on page load if connected (only once)
+  // Auto-sync calendar on page load (silent, once)
   useEffect(() => {
     let cancelled = false;
     const autoSync = async () => {
-      // Only run if connected and not already syncing
-      if (!isConnected || syncState.status === 'syncing' || syncState.status === 'checking') {
-        return;
-      }
       try {
-        const hasNewData = await syncCalendar(false); // Silent sync on auto
+        const hasNewData = await syncCalendar(false); // Silent sync
         if (!cancelled && hasNewData) {
           await fetchData();
         }
@@ -107,13 +93,13 @@ const Index = () => {
       }
     };
 
-    // Small delay to let auth state settle
-    const timer = setTimeout(autoSync, 1500);
+    // Small delay to let page settle
+    const timer = setTimeout(autoSync, 1000);
     return () => {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [isConnected, syncCalendar, fetchData]); // Proper dependencies but sync only triggers on connection change
+  }, []); // Only run once on mount
 
   const handleFileLoad = useCallback((content: string) => {
     setIsLoading(true);
@@ -169,12 +155,10 @@ const Index = () => {
       const hasNewData = await syncCalendar(false); // Silent sync, we'll show our own toast
       if (hasNewData) {
         await fetchData();
-        // Show quick toast with synced info
-        const totalMinutes = Math.round((syncState.syncedCount || 1) * 30); // Estimate based on average session
         toast({
           title: `${syncState.syncedCount || 'New'} session${syncState.syncedCount !== 1 ? 's' : ''} synced`,
-          description: syncState.syncedCount ? `Added to your practice history` : 'Calendar is up to date',
-          duration: 2000, // Quick disappear
+          description: 'Added to your practice history',
+          duration: 2000,
         });
       } else {
         toast({
@@ -198,18 +182,16 @@ const Index = () => {
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         {/* Header */}
         <div className="flex items-center justify-end mb-8 gap-2">
-          {user && isConnected && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleManualSync}
-              disabled={syncState.status === 'syncing'}
-              className="gap-2"
-            >
-              <RefreshCw className={`w-4 h-4 ${syncState.status === 'syncing' ? 'animate-spin' : ''}`} />
-              {syncState.status === 'syncing' ? 'Syncing...' : 'Sync'}
-            </Button>
-          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleManualSync}
+            disabled={isSyncing}
+            className="gap-2"
+          >
+            <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
+            {isSyncing ? 'Syncing...' : 'Sync'}
+          </Button>
           <Link to="/settings">
             <Button variant="ghost" size="sm" className="font-mono text-muted-foreground hover:text-foreground">
               {APP_VERSION}
