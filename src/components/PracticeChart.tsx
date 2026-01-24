@@ -1,4 +1,4 @@
-import { useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useState } from 'react';
 import {
   LineChart,
   Line,
@@ -17,34 +17,42 @@ interface PracticeChartProps {
   onHover?: (data: DailyData | null) => void;
 }
 
-// Trade Republic colors
+// Trade Republic exact colors
 const COLORS = {
-  positive: '#00CC66',
-  negative: '#FC4236',
-  muted: '#7F8494',
+  positive: '#09C651',
+  negative: '#FD4136',
+  muted: '#595A5F',
   unreached: '#161616',
+  white: '#FFFFFF',
 };
 
 export function PracticeChart({ data, timeRange, onHover }: PracticeChartProps) {
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+
   const chartData = useMemo(() => {
-    return data.map((d) => ({
+    return data.map((d, index) => ({
       ...d,
-      displayDate: format(
-        d.date, 
-        timeRange === '1W' ? 'd. MMM' : 
-        timeRange === '1M' ? 'd. MMM' : 
-        'MMM yy'
-      ),
+      index,
+      // Use timestamp for continuous time scale
+      timestamp: d.date.getTime(),
+      displayDate: format(d.date, 'd MMM'),
       averageHours: d.cumulativeAverage,
     }));
-  }, [data, timeRange]);
+  }, [data]);
 
-  // Calculate tick indices to show exactly 5 ticks
+  // Calculate exactly 5 equidistant time-based ticks
   const xAxisTicks = useMemo(() => {
-    if (chartData.length <= 5) return undefined;
-    const step = (chartData.length - 1) / 4;
-    return [0, 1, 2, 3, 4].map(i => Math.round(i * step));
-  }, [chartData.length]);
+    if (chartData.length < 2) return undefined;
+    
+    const startTime = chartData[0].timestamp;
+    const endTime = chartData[chartData.length - 1].timestamp;
+    const timeRange = endTime - startTime;
+    
+    // Generate 5 equidistant timestamps
+    return [0, 0.25, 0.5, 0.75, 1].map(fraction => 
+      startTime + (timeRange * fraction)
+    );
+  }, [chartData]);
 
   // Calculate the data range to determine formatting precision
   const { range, baselineValue } = useMemo(() => {
@@ -74,13 +82,21 @@ export function PracticeChart({ data, timeRange, onHover }: PracticeChartProps) 
     return `${h}h ${m}m`;
   }, [range]);
 
+  const formatXAxisTick = useCallback((timestamp: number) => {
+    return format(new Date(timestamp), 'd MMM');
+  }, []);
+
   const handleMouseMove = useCallback((state: any) => {
+    if (state?.activeTooltipIndex !== undefined) {
+      setActiveIndex(state.activeTooltipIndex);
+    }
     if (state?.activePayload?.[0]?.payload && onHover) {
       onHover(state.activePayload[0].payload as DailyData);
     }
   }, [onHover]);
 
   const handleMouseLeave = useCallback(() => {
+    setActiveIndex(null);
     if (onHover) {
       onHover(null);
     }
@@ -99,6 +115,11 @@ export function PracticeChart({ data, timeRange, onHover }: PracticeChartProps) 
   const firstValue = chartData[0]?.averageHours || 0;
   const isPositiveTrend = lastValue >= firstValue;
   const lineColor = isPositiveTrend ? COLORS.positive : COLORS.negative;
+
+  // Calculate clip path position for split-line effect
+  const clipPercentage = activeIndex !== null 
+    ? ((activeIndex + 1) / chartData.length) * 100 
+    : 100;
 
   // Custom active dot with glow effect and pulse animation
   const renderActiveDot = (props: any) => {
@@ -151,7 +172,7 @@ export function PracticeChart({ data, timeRange, onHover }: PracticeChartProps) 
     if (active && payload && payload.length) {
       const data = payload[0].payload as DailyData;
       return (
-        <div className="flex flex-col items-center pointer-events-none">
+        <div className="flex flex-col items-center pointer-events-none -mt-2">
           <span className="text-sm font-medium" style={{ color: COLORS.muted }}>
             {format(data.date, 'd MMM')}
           </span>
@@ -174,21 +195,27 @@ export function PracticeChart({ data, timeRange, onHover }: PracticeChartProps) 
           onMouseLeave={handleMouseLeave}
         >
           <defs>
-            {/* Gradient for the active (colored) portion */}
-            <linearGradient id="coloredLine" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor={lineColor} />
-              <stop offset="100%" stopColor={lineColor} />
-            </linearGradient>
+            {/* Clip path for colored portion (left of cursor) */}
+            <clipPath id="coloredClip">
+              <rect x="0" y="0" width={`${clipPercentage}%`} height="100%" />
+            </clipPath>
+            {/* Clip path for unreached portion (right of cursor) */}
+            <clipPath id="uncoloredClip">
+              <rect x={`${clipPercentage}%`} y="0" width={`${100 - clipPercentage}%`} height="100%" />
+            </clipPath>
           </defs>
           
           <XAxis
-            dataKey="displayDate"
+            dataKey="timestamp"
+            type="number"
+            domain={['dataMin', 'dataMax']}
+            scale="time"
             axisLine={false}
             tickLine={false}
             tick={{ fill: COLORS.muted, fontSize: 13 }}
             dy={10}
-            ticks={xAxisTicks?.map(i => chartData[i]?.displayDate)}
-            interval={0}
+            ticks={xAxisTicks}
+            tickFormatter={formatXAxisTick}
           />
           <YAxis
             domain={['dataMin', 'dataMax']}
@@ -216,6 +243,22 @@ export function PracticeChart({ data, timeRange, onHover }: PracticeChartProps) 
             position={{ y: 0 }}
             wrapperStyle={{ zIndex: 100 }}
           />
+          
+          {/* Unreached line (gray, right of cursor) - render first so it's behind */}
+          {activeIndex !== null && (
+            <Line
+              type="linear"
+              dataKey="averageHours"
+              stroke={COLORS.unreached}
+              strokeWidth={2}
+              dot={false}
+              activeDot={false}
+              clipPath="url(#uncoloredClip)"
+              isAnimationActive={false}
+            />
+          )}
+          
+          {/* Colored line (left of cursor or full if not hovering) */}
           <Line
             type="linear"
             dataKey="averageHours"
@@ -223,6 +266,7 @@ export function PracticeChart({ data, timeRange, onHover }: PracticeChartProps) 
             strokeWidth={2}
             dot={false}
             activeDot={renderActiveDot}
+            clipPath={activeIndex !== null ? "url(#coloredClip)" : undefined}
           />
         </LineChart>
       </ResponsiveContainer>
