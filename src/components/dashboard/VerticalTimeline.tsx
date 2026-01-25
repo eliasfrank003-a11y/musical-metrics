@@ -223,6 +223,16 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
   return (
     <div className="px-4 py-6">
       <div className="relative ml-[7px]">
+        {/* Single continuous vertical line from first to last node */}
+        <div 
+          className="absolute left-0 w-0.5"
+          style={{ 
+            backgroundColor: COLORS.line,
+            top: '1rem',
+            bottom: '1rem',
+          }}
+        />
+
         {/* Timeline Nodes */}
         <div className="space-y-0">
           {timelineNodes.map((node, index) => {
@@ -277,20 +287,6 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
 
             return (
               <div key={node.id} className="relative">
-                {/* Vertical line segment - don't show above first or below last */}
-                {!isFirst && (
-                  <div 
-                    className="absolute left-0 w-0.5 -top-3 h-3"
-                    style={{ backgroundColor: COLORS.line }}
-                  />
-                )}
-                {!isLast && (
-                  <div 
-                    className="absolute left-0 w-0.5 top-4 bottom-0 h-[calc(100%-1rem)]"
-                    style={{ backgroundColor: COLORS.line }}
-                  />
-                )}
-                
                 <div className="relative flex items-start gap-4 py-3">
                   {/* Node Dot */}
                   <div 
