@@ -245,8 +245,7 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
               if (node.isFuture) {
                 const color = node.is10k || node.is1k ? COLORS.purple : COLORS.yellow;
                 return { 
-                  backgroundColor: 'transparent',
-                  border: `2px solid ${color}`,
+                  backgroundColor: color,
                 };
               }
               if (node.isStart) {
