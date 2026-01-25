@@ -334,19 +334,24 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
 
                 {/* Description block for custom milestones - only show when expanded */}
                 {node.description && expandedNodeId === node.id && (
-                  <div 
-                    className="ml-[19px] pl-4 py-2 border-l"
-                    style={{ borderColor: COLORS.line }}
-                  >
-                    {node.description.split('\n').map((line, i) => (
-                      <p 
-                        key={i}
-                        className="text-xs"
-                        style={{ color: COLORS.muted }}
-                      >
-                        {line || '\u00A0'}
-                      </p>
-                    ))}
+                  <div className="relative flex items-start gap-4 pb-2">
+                    {/* Description dot */}
+                    <div 
+                      className="w-2 h-2 rounded-full -ml-[3px] mt-1 flex-shrink-0 relative z-10"
+                      style={{ backgroundColor: COLORS.muted }}
+                    />
+                    {/* Description content */}
+                    <div className="flex-1">
+                      {node.description.split('\n').map((line, i) => (
+                        <p 
+                          key={i}
+                          className="text-xs"
+                          style={{ color: COLORS.muted }}
+                        >
+                          {line || '\u00A0'}
+                        </p>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
