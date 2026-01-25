@@ -1,4 +1,3 @@
-import { ForecastSection } from '@/components/dashboard/ForecastSection';
 import { VerticalTimeline } from '@/components/dashboard/VerticalTimeline';
 import { useMilestones } from '@/hooks/useMilestones';
 import { AnalyticsResult } from '@/lib/practiceAnalytics';
@@ -20,16 +19,11 @@ export function TenKOverview({ analytics }: TenKOverviewProps) {
 
   return (
     <div className="pb-8">
-      {/* Forecast Cards */}
-      <ForecastSection
-        totalHours={analytics.totalHours}
-        dailyAverage={analytics.currentAverage}
-      />
-
-      {/* Vertical Timeline */}
+      {/* Unified Vertical Timeline with forecasts */}
       <VerticalTimeline
         milestones={milestones}
         currentHours={analytics.totalHours}
+        dailyAverage={analytics.currentAverage}
         startDate={analytics.startDate}
       />
     </div>
