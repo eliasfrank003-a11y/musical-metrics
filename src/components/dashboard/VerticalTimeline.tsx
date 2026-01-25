@@ -112,10 +112,56 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
   milestones.forEach((m) => {
     if (m.achieved_at) {
       const isCustom = m.milestone_type === 'custom';
+      let customTitle = `${m.hours.toLocaleString()} Hours`;
+      
+      if (isCustom && m.description) {
+        const lines = m.description.split('\n').map(l => l.trim()).filter(l => l);
+        // Skip date line if present
+        const isDate = (s: string) => /^\d{2}\/\d{2}\/\d{4}$/.test(s) || /^\d{2}\/\d{2}\/\d{2}$/.test(s);
+        const locations = ['Maastricht', 'Rungan Sari', 'Florence'];
+        const equipment = ['Roland FP-30X', 'Kawai RX1', 'Kawai CA901'];
+        
+        // Find the "name" line - not a date, not a location, not equipment
+        const nameLine = lines.find(l => !isDate(l) && !locations.includes(l) && !equipment.includes(l));
+        
+        if (nameLine) {
+          if (nameLine.toLowerCase().includes('splitting')) {
+            customTitle = 'Introducing split time';
+          } else if (nameLine.toLowerCase().includes('v1')) {
+            customTitle = 'Piano v1';
+          } else {
+            // It's a teacher/person name
+            customTitle = nameLine;
+          }
+        }
+        
+        // Special handling for Florence location-based milestones
+        if (lines.includes('Florence')) {
+          if (m.hours === 250) {
+            customTitle = 'Florence →';
+          } else if (m.hours === 447) {
+            customTitle = '→ Florence';
+          }
+        }
+        
+        // Special handling for teacher milestones
+        if (nameLine === 'Ibu Septi') {
+          if (m.hours === 530) {
+            customTitle = 'Ibu Septi →';
+          } else if (m.hours === 641) {
+            customTitle = '→ Ibu Septi';
+          }
+        }
+        
+        if (nameLine === 'Didier') {
+          customTitle = 'Didier →';
+        }
+      }
+      
       timelineNodes.push({
         id: `achieved-${m.id}`,
         hours: m.hours,
-        title: isCustom ? 'Florence →' : `${m.hours.toLocaleString()} Hours`,
+        title: isCustom ? customTitle : `${m.hours.toLocaleString()} Hours`,
         date: new Date(m.achieved_at),
         average: m.average_at_milestone ? formatAverage(m.average_at_milestone) : null,
         description: m.description,
