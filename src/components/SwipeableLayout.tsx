@@ -46,14 +46,14 @@ export function SwipeableLayout({ fixedTop, leftView, rightView }: SwipeableLayo
   };
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-background">
-      {/* Fixed Top Section - Daily Average */}
+    <div className="h-screen overflow-y-auto bg-background">
+      {/* Top Section - Daily Average (scrolls with page) */}
       <div className="flex-shrink-0">
         {fixedTop}
       </div>
 
       {/* Dot Indicators */}
-      <div className="flex justify-center gap-2 py-3 flex-shrink-0">
+      <div className="flex justify-center gap-2 py-3 sticky top-0 z-10 bg-background">
         <button 
           onClick={() => setCurrentView('left')} 
           className={cn(
@@ -70,23 +70,23 @@ export function SwipeableLayout({ fixedTop, leftView, rightView }: SwipeableLayo
         />
       </div>
 
-      {/* Swipeable Bottom Section */}
+      {/* Swipeable Content Section */}
       <div 
         ref={containerRef} 
-        className="flex-1 overflow-hidden" 
+        className="overflow-hidden" 
         onTouchStart={handleTouchStart} 
         onTouchMove={handleTouchMove} 
         onTouchEnd={handleTouchEnd}
       >
         <div 
           className={cn(
-            "flex h-full",
+            "flex",
             !isSwiping && "transition-transform duration-300"
           )} 
           style={{ width: '200%', transform: `translateX(${getTranslateX()}%)` }}
         >
-          <div className="w-1/2 h-full overflow-y-auto">{leftView}</div>
-          <div className="w-1/2 h-full overflow-y-auto">{rightView}</div>
+          <div className="w-1/2">{leftView}</div>
+          <div className="w-1/2">{rightView}</div>
         </div>
       </div>
     </div>
