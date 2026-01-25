@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      milestones: {
+        Row: {
+          achieved_at: string | null
+          average_at_milestone: number | null
+          created_at: string
+          hours: number
+          id: number
+        }
+        Insert: {
+          achieved_at?: string | null
+          average_at_milestone?: number | null
+          created_at?: string
+          hours: number
+          id?: number
+        }
+        Update: {
+          achieved_at?: string | null
+          average_at_milestone?: number | null
+          created_at?: string
+          hours?: number
+          id?: number
+        }
+        Relationships: []
+      }
       practice_sessions: {
         Row: {
           created_at: string
@@ -35,6 +59,36 @@ export type Database = {
           id?: number
           source?: string
           started_at?: string
+        }
+        Relationships: []
+      }
+      repertoire_items: {
+        Row: {
+          composer: string | null
+          created_at: string
+          id: number
+          sort_order: number
+          status: string | null
+          title: string
+          type: string
+        }
+        Insert: {
+          composer?: string | null
+          created_at?: string
+          id?: number
+          sort_order: number
+          status?: string | null
+          title: string
+          type?: string
+        }
+        Update: {
+          composer?: string | null
+          created_at?: string
+          id?: number
+          sort_order?: number
+          status?: string | null
+          title?: string
+          type?: string
         }
         Relationships: []
       }
