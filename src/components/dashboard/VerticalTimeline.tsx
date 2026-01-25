@@ -228,8 +228,8 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
           className="absolute left-0 w-0.5"
           style={{ 
             backgroundColor: COLORS.line,
-            top: '1rem',
-            bottom: '1rem',
+            top: '1.75rem',
+            bottom: '2.25rem',
           }}
         />
 
