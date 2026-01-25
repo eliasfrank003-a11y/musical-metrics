@@ -1,3 +1,4 @@
+import { Plus } from 'lucide-react';
 import { formatHoursMinutes } from '@/lib/practiceAnalytics';
 
 // Trade Republic exact colors
@@ -10,28 +11,38 @@ const COLORS = {
 interface StatsFooterProps {
   totalHours: number;
   totalDays: number;
+  onAddMilestone?: () => void;
 }
 
-export function StatsFooter({ totalHours, totalDays }: StatsFooterProps) {
+export function StatsFooter({ totalHours, totalDays, onAddMilestone }: StatsFooterProps) {
   return (
-    <div className="grid grid-cols-2 gap-3">
+    <div className="grid grid-cols-3 gap-2">
       <div 
-        className="flex flex-col px-3 py-2 rounded-lg"
+        className="flex flex-col px-2 py-2 rounded-lg"
         style={{ backgroundColor: COLORS.unreached }}
       >
-        <span className="text-xs" style={{ color: COLORS.muted }}>Total Hours</span>
-        <span className="text-base font-semibold" style={{ color: COLORS.white }}>
+        <span className="text-[10px]" style={{ color: COLORS.muted }}>Total Hours</span>
+        <span className="text-sm font-semibold" style={{ color: COLORS.white }}>
           {formatHoursMinutes(totalHours)}
         </span>
       </div>
       
       <div 
-        className="flex flex-col px-3 py-2 rounded-lg"
+        className="flex flex-col px-2 py-2 rounded-lg"
         style={{ backgroundColor: COLORS.unreached }}
       >
-        <span className="text-xs" style={{ color: COLORS.muted }}>Day Counter</span>
-        <span className="text-base font-semibold" style={{ color: COLORS.white }}>{totalDays}</span>
+        <span className="text-[10px]" style={{ color: COLORS.muted }}>Day Counter</span>
+        <span className="text-sm font-semibold" style={{ color: COLORS.white }}>{totalDays}</span>
       </div>
+
+      <button
+        onClick={onAddMilestone}
+        className="flex flex-col items-center justify-center px-2 py-2 rounded-lg transition-opacity hover:opacity-80"
+        style={{ backgroundColor: COLORS.unreached }}
+      >
+        <Plus size={16} style={{ color: COLORS.muted }} />
+        <span className="text-[10px] mt-0.5" style={{ color: COLORS.muted }}>Add Milestone</span>
+      </button>
     </div>
   );
 }
