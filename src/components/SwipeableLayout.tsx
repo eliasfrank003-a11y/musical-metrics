@@ -2,12 +2,13 @@ import { useState, useRef, ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
 interface SwipeableLayoutProps {
-  centerView: ReactNode;
+  fixedTop: ReactNode;
+  leftView: ReactNode;
   rightView: ReactNode;
 }
 
-export function SwipeableLayout({ centerView, rightView }: SwipeableLayoutProps) {
-  const [currentView, setCurrentView] = useState<'center' | 'right'>('center');
+export function SwipeableLayout({ fixedTop, leftView, rightView }: SwipeableLayoutProps) {
+  const [currentView, setCurrentView] = useState<'left' | 'right'>('left');
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchDelta, setTouchDelta] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
@@ -27,8 +28,8 @@ export function SwipeableLayout({ centerView, rightView }: SwipeableLayoutProps)
 
   const handleTouchEnd = () => {
     if (Math.abs(touchDelta) > SWIPE_THRESHOLD) {
-      if (touchDelta > 0 && currentView === 'right') setCurrentView('center');
-      else if (touchDelta < 0 && currentView === 'center') setCurrentView('right');
+      if (touchDelta > 0 && currentView === 'right') setCurrentView('left');
+      else if (touchDelta < 0 && currentView === 'left') setCurrentView('right');
     }
     setTouchStart(null);
     setTouchDelta(0);
@@ -36,7 +37,7 @@ export function SwipeableLayout({ centerView, rightView }: SwipeableLayoutProps)
   };
 
   const getTranslateX = () => {
-    const base = currentView === 'center' ? 0 : -50;
+    const base = currentView === 'left' ? 0 : -50;
     if (isSwiping && containerRef.current) {
       const delta = (touchDelta / containerRef.current.offsetWidth) * 50;
       return Math.max(-50, Math.min(0, base + delta));
@@ -46,19 +47,47 @@ export function SwipeableLayout({ centerView, rightView }: SwipeableLayoutProps)
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-background">
-      <div className="flex justify-center gap-8 py-4 border-b border-border/20">
-        <button onClick={() => setCurrentView('center')} className={cn("text-sm font-medium transition-colors", currentView === 'center' ? "text-foreground" : "text-muted-foreground")}>Dashboard</button>
-        <button onClick={() => setCurrentView('right')} className={cn("text-sm font-medium transition-colors", currentView === 'right' ? "text-foreground" : "text-muted-foreground")}>Repertoire</button>
+      {/* Fixed Top Section - Daily Average */}
+      <div className="flex-shrink-0">
+        {fixedTop}
       </div>
-      <div ref={containerRef} className="flex-1 overflow-hidden" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
-        <div className={cn("flex h-full", !isSwiping && "transition-transform duration-300")} style={{ width: '200%', transform: `translateX(${getTranslateX()}%)` }}>
-          <div className="w-1/2 h-full overflow-y-auto">{centerView}</div>
+
+      {/* Dot Indicators */}
+      <div className="flex justify-center gap-2 py-3 flex-shrink-0">
+        <button 
+          onClick={() => setCurrentView('left')} 
+          className={cn(
+            "w-2 h-2 rounded-full transition-colors",
+            currentView === 'left' ? "bg-foreground" : "bg-muted-foreground/30"
+          )} 
+        />
+        <button 
+          onClick={() => setCurrentView('right')} 
+          className={cn(
+            "w-2 h-2 rounded-full transition-colors",
+            currentView === 'right' ? "bg-foreground" : "bg-muted-foreground/30"
+          )} 
+        />
+      </div>
+
+      {/* Swipeable Bottom Section */}
+      <div 
+        ref={containerRef} 
+        className="flex-1 overflow-hidden" 
+        onTouchStart={handleTouchStart} 
+        onTouchMove={handleTouchMove} 
+        onTouchEnd={handleTouchEnd}
+      >
+        <div 
+          className={cn(
+            "flex h-full",
+            !isSwiping && "transition-transform duration-300"
+          )} 
+          style={{ width: '200%', transform: `translateX(${getTranslateX()}%)` }}
+        >
+          <div className="w-1/2 h-full overflow-y-auto">{leftView}</div>
           <div className="w-1/2 h-full overflow-y-auto">{rightView}</div>
         </div>
-      </div>
-      <div className="flex justify-center gap-2 py-3">
-        <button onClick={() => setCurrentView('center')} className={cn("w-2 h-2 rounded-full", currentView === 'center' ? "bg-foreground" : "bg-muted-foreground/30")} />
-        <button onClick={() => setCurrentView('right')} className={cn("w-2 h-2 rounded-full", currentView === 'right' ? "bg-foreground" : "bg-muted-foreground/30")} />
       </div>
     </div>
   );
