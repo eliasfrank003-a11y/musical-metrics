@@ -1,5 +1,4 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import { ForecastSection } from '@/components/dashboard/ForecastSection';
 import { VerticalTimeline } from '@/components/dashboard/VerticalTimeline';
 import { MetricDisplay } from '@/components/MetricDisplay';
 import { TimeRangeSelector } from '@/components/TimeRangeSelector';
@@ -169,16 +168,11 @@ export function Dashboard() {
 
         {analytics ? (
           <div className="space-y-8">
-            {/* Forecast Cards */}
-            <ForecastSection
-              totalHours={analytics.totalHours}
-              dailyAverage={analytics.currentAverage}
-            />
-
-            {/* Vertical Timeline */}
+            {/* Unified Vertical Timeline */}
             <VerticalTimeline
               milestones={milestones}
               currentHours={analytics.totalHours}
+              dailyAverage={analytics.currentAverage}
               startDate={analytics.startDate}
             />
 
