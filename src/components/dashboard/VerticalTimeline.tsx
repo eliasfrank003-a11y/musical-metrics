@@ -128,7 +128,7 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
         
         if (nameLine) {
           if (nameLine.toLowerCase().includes('splitting')) {
-            customTitle = 'Introducing split time';
+            customTitle = 'Split Time';
           } else if (nameLine.toLowerCase().includes('v1')) {
             customTitle = 'Piano v1';
           } else {
@@ -223,15 +223,11 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
   return (
     <div className="px-4 py-6">
       <div className="relative ml-[7px]">
-        {/* Vertical Line */}
-        <div 
-          className="absolute left-0 top-0 bottom-0 w-0.5"
-          style={{ backgroundColor: COLORS.line }}
-        />
-
         {/* Timeline Nodes */}
         <div className="space-y-0">
-          {timelineNodes.map((node) => {
+          {timelineNodes.map((node, index) => {
+            const isFirst = index === 0;
+            const isLast = index === timelineNodes.length - 1;
             const getNodeStyle = () => {
               if (node.isCurrent) {
                 return { backgroundColor: COLORS.green };
@@ -245,11 +241,15 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
               }
               if (node.isStart) {
                 return { 
-                  backgroundColor: 'transparent',
-                  border: `2px solid ${COLORS.muted}`,
+                  backgroundColor: COLORS.muted,
                 };
               }
               return { backgroundColor: COLORS.green };
+            };
+
+            const getNodeSize = () => {
+              if (node.isStart) return 'w-2 h-2 -ml-[3px]';
+              return 'w-3 h-3 -ml-[5px]';
             };
 
             const getTitleColor = () => {
@@ -276,11 +276,25 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
             };
 
             return (
-              <div key={node.id}>
+              <div key={node.id} className="relative">
+                {/* Vertical line segment - don't show above first or below last */}
+                {!isFirst && (
+                  <div 
+                    className="absolute left-0 w-0.5 -top-3 h-3"
+                    style={{ backgroundColor: COLORS.line }}
+                  />
+                )}
+                {!isLast && (
+                  <div 
+                    className="absolute left-0 w-0.5 top-4 bottom-0 h-[calc(100%-1rem)]"
+                    style={{ backgroundColor: COLORS.line }}
+                  />
+                )}
+                
                 <div className="relative flex items-start gap-4 py-3">
                   {/* Node Dot */}
                   <div 
-                    className="w-3 h-3 rounded-full -ml-[5px] mt-1 flex-shrink-0 relative z-10"
+                    className={`${getNodeSize()} rounded-full mt-1 flex-shrink-0 relative z-10`}
                     style={getNodeStyle()}
                   />
                   
