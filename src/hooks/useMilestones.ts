@@ -7,6 +7,8 @@ export interface Milestone {
   hours: number;
   achieved_at: string | null;
   average_at_milestone: number | null;
+  description: string | null;
+  milestone_type: string | null;
 }
 
 export function useMilestones() {

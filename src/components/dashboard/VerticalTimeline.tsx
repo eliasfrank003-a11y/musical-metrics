@@ -1,4 +1,4 @@
-import { format, addDays } from 'date-fns';
+import { format, addDays, differenceInDays, differenceInMonths, differenceInYears } from 'date-fns';
 
 interface Milestone {
   id: number;
@@ -6,6 +6,7 @@ interface Milestone {
   achieved_at: string | null;
   average_at_milestone: number | null;
   description?: string | null;
+  milestone_type?: string | null;
 }
 
 interface VerticalTimelineProps {
@@ -20,43 +21,40 @@ const COLORS = {
   green: '#09C651',
   purple: '#A855F7',
   yellow: '#FACC15',
-  card: '#161616',
   line: '#2A2A2A',
 };
 
 export function VerticalTimeline({ milestones, currentHours, dailyAverage, startDate }: VerticalTimelineProps) {
-  // Calculate future milestones
   const today = new Date();
   
-  // 10,000h finish
+  // Calculate future milestones
   const hoursTo10k = Math.max(0, 10000 - currentHours);
   const daysTo10k = dailyAverage > 0 ? Math.ceil(hoursTo10k / dailyAverage) : Infinity;
   const date10k = dailyAverage > 0 ? addDays(today, daysTo10k) : null;
   
-  // Next 1000h milestone
   const next1k = Math.ceil(currentHours / 1000) * 1000;
   const hoursToNext1k = next1k - currentHours;
   const daysToNext1k = dailyAverage > 0 ? Math.ceil(hoursToNext1k / dailyAverage) : Infinity;
   const dateNext1k = dailyAverage > 0 ? addDays(today, daysToNext1k) : null;
   
-  // Next 100h milestone
   const next100 = Math.ceil(currentHours / 100) * 100;
   const hoursToNext100 = next100 - currentHours;
   const daysToNext100 = dailyAverage > 0 ? Math.ceil(hoursToNext100 / dailyAverage) : Infinity;
   const dateNext100 = dailyAverage > 0 ? addDays(today, daysToNext100) : null;
 
-  // Build combined timeline with future and past milestones
   type TimelineNode = {
     id: string;
     hours: number;
+    title: string;
     date: Date | null;
-    dateStr: string | null;
     average: string | null;
     description?: string | null;
     isFuture: boolean;
     isCurrent?: boolean;
     is10k?: boolean;
     is1k?: boolean;
+    isCustom?: boolean;
+    isStart?: boolean;
   };
 
   const timelineNodes: TimelineNode[] = [];
@@ -66,8 +64,8 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
     timelineNodes.push({
       id: 'goal-10k',
       hours: 10000,
+      title: '10,000 Hours',
       date: date10k,
-      dateStr: null,
       average: null,
       isFuture: true,
       is10k: true,
@@ -79,8 +77,8 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
     timelineNodes.push({
       id: `future-${next1k}`,
       hours: next1k,
+      title: `${next1k.toLocaleString()} Hours`,
       date: dateNext1k,
-      dateStr: null,
       average: null,
       isFuture: true,
       is1k: true,
@@ -92,8 +90,8 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
     timelineNodes.push({
       id: `future-${next100}`,
       hours: next100,
+      title: `${next100.toLocaleString()} Hours`,
       date: dateNext100,
-      dateStr: null,
       average: null,
       isFuture: true,
     });
@@ -103,8 +101,8 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
   timelineNodes.push({
     id: 'current',
     hours: currentHours,
+    title: `${Math.floor(currentHours).toLocaleString()} Hours`,
     date: today,
-    dateStr: format(today, 'yyyy-MM-dd'),
     average: null,
     isFuture: false,
     isCurrent: true,
@@ -113,16 +111,29 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
   // Add achieved milestones
   milestones.forEach((m) => {
     if (m.achieved_at) {
+      const isCustom = m.milestone_type === 'custom';
       timelineNodes.push({
         id: `achieved-${m.id}`,
         hours: m.hours,
+        title: isCustom ? 'Florence →' : `${m.hours.toLocaleString()} Hours`,
         date: new Date(m.achieved_at),
-        dateStr: m.achieved_at,
         average: m.average_at_milestone ? formatAverage(m.average_at_milestone) : null,
         description: m.description,
         isFuture: false,
+        isCustom,
       });
     }
+  });
+
+  // Add journey start
+  timelineNodes.push({
+    id: 'start',
+    hours: 0,
+    title: 'Journey Started',
+    date: startDate,
+    average: null,
+    isFuture: false,
+    isStart: true,
   });
 
   // Sort by hours descending
@@ -138,6 +149,24 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
     return `${minutes}m/day`;
   }
 
+  function formatTimeAgo(date: Date): string {
+    const days = differenceInDays(today, date);
+    return `${days} days ago`;
+  }
+
+  function formatTimeSinceStart(date: Date): string {
+    const years = differenceInYears(today, date);
+    const months = differenceInMonths(today, date) % 12;
+    
+    if (years > 0 && months > 0) {
+      return `${years} year${years > 1 ? 's' : ''} ${months} month${months > 1 ? 's' : ''}`;
+    } else if (years > 0) {
+      return `${years} year${years > 1 ? 's' : ''}`;
+    } else {
+      return `${months} month${months > 1 ? 's' : ''}`;
+    }
+  }
+
   const formatDate = (date: Date | null) => {
     if (!date) return '—';
     return format(date, 'MMM d, yyyy');
@@ -145,7 +174,6 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
 
   return (
     <div className="px-4 py-6">
-      {/* Timeline */}
       <div className="relative ml-[7px]">
         {/* Vertical Line */}
         <div 
@@ -156,101 +184,107 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
         {/* Timeline Nodes */}
         <div className="space-y-0">
           {timelineNodes.map((node) => {
-            const getNodeColor = () => {
-              if (node.isCurrent) return COLORS.green;
-              if (node.is10k) return COLORS.purple;
-              if (node.is1k) return COLORS.purple;
-              if (node.isFuture) return COLORS.yellow;
-              return COLORS.green;
-            };
-
             const getNodeStyle = () => {
               if (node.isCurrent) {
                 return { backgroundColor: COLORS.green };
               }
               if (node.isFuture) {
+                const color = node.is10k || node.is1k ? COLORS.purple : COLORS.yellow;
                 return { 
                   backgroundColor: 'transparent',
-                  border: `2px solid ${getNodeColor()}`,
+                  border: `2px solid ${color}`,
+                };
+              }
+              if (node.isStart) {
+                return { 
+                  backgroundColor: 'transparent',
+                  border: `2px solid ${COLORS.muted}`,
                 };
               }
               return { backgroundColor: COLORS.green };
             };
 
+            const getTitleColor = () => {
+              if (node.isCurrent) return COLORS.green;
+              if (node.isFuture) return node.is10k || node.is1k ? COLORS.purple : COLORS.yellow;
+              if (node.isStart) return COLORS.muted;
+              return 'inherit';
+            };
+
+            const getRightContent = () => {
+              if (node.isFuture) {
+                return `Est. ${formatDate(node.date)}`;
+              }
+              if (node.isCurrent) {
+                return '← You are here';
+              }
+              if (node.isStart && node.date) {
+                return formatTimeSinceStart(node.date);
+              }
+              if (node.isCustom) {
+                return `${node.hours} h`;
+              }
+              return node.average || '';
+            };
+
             return (
-              <div 
-                key={node.id} 
-                className="relative flex items-start gap-4 py-3"
-              >
-                {/* Node Dot */}
-                <div 
-                  className="w-3 h-3 rounded-full -ml-[5px] mt-1 flex-shrink-0 relative z-10"
-                  style={getNodeStyle()}
-                />
-                
-                {/* Content */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-baseline justify-between gap-2">
-                    <p 
-                      className="font-medium"
-                      style={{ 
-                        color: node.isCurrent ? COLORS.green : 
-                               node.isFuture ? (node.is10k ? COLORS.purple : node.is1k ? COLORS.purple : COLORS.yellow) : 
-                               'inherit' 
-                      }}
-                    >
-                      {node.hours.toLocaleString()} Hours
-                      {node.isCurrent && <span className="ml-2 text-xs" style={{ color: COLORS.muted }}>← You are here</span>}
-                    </p>
-                    <p 
-                      className="text-xs"
-                      style={{ color: COLORS.muted }}
-                    >
-                      {node.isFuture ? `Est. ${formatDate(node.date)}` : formatDate(node.date)}
-                    </p>
+              <div key={node.id}>
+                <div className="relative flex items-start gap-4 py-3">
+                  {/* Node Dot */}
+                  <div 
+                    className="w-3 h-3 rounded-full -ml-[5px] mt-1 flex-shrink-0 relative z-10"
+                    style={getNodeStyle()}
+                  />
+                  
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <div>
+                        <p 
+                          className="font-medium"
+                          style={{ color: getTitleColor() }}
+                        >
+                          {node.title}
+                        </p>
+                        {!node.isFuture && !node.isCurrent && node.date && (
+                          <p 
+                            className="text-xs mt-0.5"
+                            style={{ color: COLORS.muted }}
+                          >
+                            {node.isStart ? formatDate(node.date) : formatTimeAgo(node.date)}
+                          </p>
+                        )}
+                      </div>
+                      <p 
+                        className="text-xs text-right flex-shrink-0"
+                        style={{ color: node.isCurrent ? COLORS.green : COLORS.muted }}
+                      >
+                        {getRightContent()}
+                      </p>
+                    </div>
                   </div>
-                  {node.average && (
-                    <p 
-                      className="text-xs mt-0.5"
-                      style={{ color: COLORS.muted }}
-                    >
-                      Avg: {node.average}
-                    </p>
-                  )}
-                  {node.description && (
-                    <p 
-                      className="text-xs mt-0.5"
-                      style={{ color: COLORS.muted }}
-                    >
-                      {node.description}
-                    </p>
-                  )}
                 </div>
+
+                {/* Description block for custom milestones */}
+                {node.description && (
+                  <div 
+                    className="ml-[19px] pl-4 py-2 border-l"
+                    style={{ borderColor: COLORS.line }}
+                  >
+                    {node.description.split('\n').map((line, i) => (
+                      <p 
+                        key={i}
+                        className="text-xs"
+                        style={{ color: COLORS.muted }}
+                      >
+                        {line}
+                      </p>
+                    ))}
+                  </div>
+                )}
               </div>
             );
           })}
-        </div>
-
-        {/* Start Node */}
-        <div className="relative flex items-start gap-4 py-3 mt-2">
-          <div 
-            className="w-3 h-3 rounded-full -ml-[5px] mt-1 flex-shrink-0 relative z-10 border-2"
-            style={{ 
-              backgroundColor: 'transparent',
-              borderColor: COLORS.muted,
-            }}
-          />
-          <div>
-            <p className="font-medium" style={{ color: COLORS.muted }}>
-              Journey Started
-            </p>
-            <p 
-              className="text-xs"
-              style={{ color: COLORS.muted }}
-            >
-              {format(startDate, 'MMM d, yyyy')}
-            </p>
-          </div>
         </div>
       </div>
     </div>
