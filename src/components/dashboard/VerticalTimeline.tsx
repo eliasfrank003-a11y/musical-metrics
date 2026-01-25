@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { format, addDays, differenceInDays, differenceInMonths, differenceInYears } from 'date-fns';
 
 interface Milestone {
@@ -25,6 +26,7 @@ const COLORS = {
 };
 
 export function VerticalTimeline({ milestones, currentHours, dailyAverage, startDate }: VerticalTimelineProps) {
+  const [expandedNodeId, setExpandedNodeId] = useState<string | null>(null);
   const today = new Date();
   
   // Calculate future milestones
@@ -286,12 +288,22 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
                   <div className="flex-1 min-w-0">
                     <div className="flex items-baseline justify-between gap-2">
                       <div>
-                        <p 
-                          className="font-medium"
-                          style={{ color: getTitleColor() }}
-                        >
-                          {node.title}
-                        </p>
+                        {node.isCustom && node.description ? (
+                          <button
+                            onClick={() => setExpandedNodeId(expandedNodeId === node.id ? null : node.id)}
+                            className="font-medium text-left hover:opacity-80 transition-opacity"
+                            style={{ color: getTitleColor() }}
+                          >
+                            {node.title}
+                          </button>
+                        ) : (
+                          <p 
+                            className="font-medium"
+                            style={{ color: getTitleColor() }}
+                          >
+                            {node.title}
+                          </p>
+                        )}
                         {!node.isFuture && !node.isCurrent && node.date && (
                           <p 
                             className="text-xs mt-0.5"
@@ -311,8 +323,8 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
                   </div>
                 </div>
 
-                {/* Description block for custom milestones */}
-                {node.description && (
+                {/* Description block for custom milestones - only show when expanded */}
+                {node.description && expandedNodeId === node.id && (
                   <div 
                     className="ml-[19px] pl-4 py-2 border-l"
                     style={{ borderColor: COLORS.line }}
@@ -323,7 +335,7 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
                         className="text-xs"
                         style={{ color: COLORS.muted }}
                       >
-                        {line}
+                        {line || '\u00A0'}
                       </p>
                     ))}
                   </div>
