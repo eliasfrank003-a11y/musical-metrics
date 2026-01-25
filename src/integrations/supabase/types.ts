@@ -19,22 +19,28 @@ export type Database = {
           achieved_at: string | null
           average_at_milestone: number | null
           created_at: string
+          description: string | null
           hours: number
           id: number
+          milestone_type: string
         }
         Insert: {
           achieved_at?: string | null
           average_at_milestone?: number | null
           created_at?: string
+          description?: string | null
           hours: number
           id?: number
+          milestone_type?: string
         }
         Update: {
           achieved_at?: string | null
           average_at_milestone?: number | null
           created_at?: string
+          description?: string | null
           hours?: number
           id?: number
+          milestone_type?: string
         }
         Relationships: []
       }
