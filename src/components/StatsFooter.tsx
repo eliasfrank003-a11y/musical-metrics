@@ -37,11 +37,11 @@ export function StatsFooter({ totalHours, totalDays, onAddMilestone }: StatsFoot
 
       <button
         onClick={onAddMilestone}
-        className="flex flex-col items-center justify-center px-2 py-2 rounded-lg transition-opacity hover:opacity-80"
+        className="flex flex-col px-2 py-2 rounded-lg transition-opacity hover:opacity-80"
         style={{ backgroundColor: COLORS.unreached }}
       >
-        <Plus size={16} style={{ color: COLORS.muted }} />
-        <span className="text-[10px] mt-0.5" style={{ color: COLORS.muted }}>Add Milestone</span>
+        <span className="text-[10px]" style={{ color: COLORS.muted }}>Add Milestone</span>
+        <span className="text-sm font-semibold" style={{ color: COLORS.white }}>+</span>
       </button>
     </div>
   );
