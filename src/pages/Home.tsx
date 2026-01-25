@@ -1,13 +1,18 @@
+import { useState } from 'react';
 import { SwipeableLayout } from '@/components/SwipeableLayout';
-import { Dashboard } from '@/pages/Dashboard';
+import { DailyAverageSection } from '@/components/DailyAverageSection';
+import { TenKOverview } from '@/components/TenKOverview';
 import { Repertoire } from '@/pages/Repertoire';
 import { useDataSeeding } from '@/hooks/useDataSeeding';
+import { AnalyticsResult } from '@/lib/practiceAnalytics';
 
 // Placeholder for seed data - you'll provide the actual values in the next prompt
 const MILESTONE_SEED_DATA: { hours: number; achieved_at: string | null; average_at_milestone: number | null }[] = [];
 const REPERTOIRE_SEED_DATA: { type: 'piece' | 'divider'; title: string; composer?: string; status?: 'grey' | 'green' | 'red' }[] = [];
 
 export function Home() {
+  const [analytics, setAnalytics] = useState<AnalyticsResult | null>(null);
+
   // Initialize seeding (runs once if tables are empty)
   useDataSeeding({
     milestoneSeedData: MILESTONE_SEED_DATA,
@@ -16,7 +21,8 @@ export function Home() {
 
   return (
     <SwipeableLayout
-      centerView={<Dashboard />}
+      fixedTop={<DailyAverageSection onAnalyticsUpdate={setAnalytics} />}
+      leftView={<TenKOverview analytics={analytics} />}
       rightView={<Repertoire />}
     />
   );
