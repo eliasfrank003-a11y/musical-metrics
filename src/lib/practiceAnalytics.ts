@@ -38,12 +38,11 @@ export function calculateAnalytics(sessions: PracticeSession[]): AnalyticsResult
   
   // Find date range - extend to today if needed
   const dates = Array.from(dailyHours.keys()).sort();
-  const startDate = new Date(dates[0]);
-  const lastSessionDateStr = dates[dates.length - 1];
-  const todayStr = format(new Date(), 'yyyy-MM-dd');
-  // Compare as strings (ISO format sorts correctly) to avoid timezone issues
-  const endDateStr = lastSessionDateStr > todayStr ? lastSessionDateStr : todayStr;
-  const endDate = new Date(endDateStr);
+  const startDate = startOfDay(new Date(dates[0]));
+  const lastSessionDate = startOfDay(new Date(dates[dates.length - 1]));
+  const today = startOfDay(new Date());
+  // Always extend to today (or beyond if future sessions exist)
+  const endDate = lastSessionDate > today ? lastSessionDate : today;
   
   // Step B & C: Create continuous timeline with zero-filling
   const totalDays = differenceInDays(endDate, startDate) + 1;
