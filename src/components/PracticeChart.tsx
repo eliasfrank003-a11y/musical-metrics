@@ -233,9 +233,9 @@ export function PracticeChart({ data, timeRange, onHover }: PracticeChartProps) 
           <ReferenceLine
             y={baselineValue}
             stroke={COLORS.muted}
-            strokeDasharray="2 4"
-            strokeWidth={1}
-            strokeOpacity={0.5}
+            strokeDasharray="4 4"
+            strokeWidth={1.5}
+            strokeOpacity={0.8}
           />
           <Tooltip
             cursor={false}
