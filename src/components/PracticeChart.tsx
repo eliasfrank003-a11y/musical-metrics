@@ -185,6 +185,26 @@ export function PracticeChart({ data, timeRange, onHover }: PracticeChartProps) 
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload as DailyData;
+      
+      // Calculate the delta: how much this day changed the average
+      // Previous average = (cumulativeHours - hoursPlayed) / (dayNumber - 1)
+      const previousAverage = data.dayNumber > 1 
+        ? (data.cumulativeHours - data.hoursPlayed) / (data.dayNumber - 1)
+        : 0;
+      const averageDelta = data.cumulativeAverage - previousAverage;
+      const isPositiveDelta = averageDelta >= 0;
+      
+      // Format delta in seconds/minutes
+      const formatDeltaValue = (hours: number) => {
+        const totalSeconds = Math.round(Math.abs(hours) * 3600);
+        const m = Math.floor(totalSeconds / 60);
+        const s = totalSeconds % 60;
+        const sign = hours >= 0 ? '+' : '-';
+        if (m === 0) return `${sign}${s}s`;
+        if (s === 0) return `${sign}${m}m`;
+        return `${sign}${m}m ${s}s`;
+      };
+      
       return (
         <div 
           className="flex flex-col items-center pointer-events-none"
@@ -193,12 +213,17 @@ export function PracticeChart({ data, timeRange, onHover }: PracticeChartProps) 
           <span className="text-sm font-medium" style={{ color: COLORS.muted }}>
             {format(data.date, 'd MMM')}
           </span>
-          <span className="text-xs" style={{ color: COLORS.muted }}>
-            Day {data.dayNumber}
-          </span>
-          <span className="text-xs font-medium" style={{ color: COLORS.white }}>
-            {formatHoursMinutes(data.hoursPlayed)}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium" style={{ color: COLORS.white }}>
+              {formatHoursMinutes(data.hoursPlayed)}
+            </span>
+            <span 
+              className="text-xs font-medium"
+              style={{ color: isPositiveDelta ? COLORS.positive : COLORS.negative }}
+            >
+              {formatDeltaValue(averageDelta)}
+            </span>
+          </div>
         </div>
       );
     }
