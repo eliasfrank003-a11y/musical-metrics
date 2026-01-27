@@ -171,17 +171,33 @@ export function PracticeChart({ data, timeRange, onHover }: PracticeChartProps) 
     );
   };
 
+  // Format hours for tooltip display
+  const formatHoursMinutes = (hours: number) => {
+    const totalMinutes = Math.round(hours * 60);
+    const h = Math.floor(totalMinutes / 60);
+    const m = totalMinutes % 60;
+    if (h === 0) return `${m}m`;
+    if (m === 0) return `${h}h`;
+    return `${h}h ${m}m`;
+  };
+
   // Custom floating label tooltip
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload as DailyData;
       return (
-        <div className="flex flex-col items-center pointer-events-none -mt-2">
+        <div 
+          className="flex flex-col items-center pointer-events-none"
+          style={{ transform: 'translateX(-50%)', marginLeft: '50%' }}
+        >
           <span className="text-sm font-medium" style={{ color: COLORS.muted }}>
             {format(data.date, 'd MMM')}
           </span>
           <span className="text-xs" style={{ color: COLORS.muted }}>
             Day {data.dayNumber}
+          </span>
+          <span className="text-xs font-medium" style={{ color: COLORS.white }}>
+            {formatHoursMinutes(data.hoursPlayed)}
           </span>
         </div>
       );
