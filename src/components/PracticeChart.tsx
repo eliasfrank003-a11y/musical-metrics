@@ -89,18 +89,14 @@ export function PracticeChart({ data, timeRange, onHover }: PracticeChartProps) 
 
   const handleMouseMove = useCallback((state: any) => {
     if (state?.activeTooltipIndex !== undefined) {
-      setActiveIndex(state.activeTooltipIndex);
-      // Calculate scrub percentage based on chart coordinates
-      if (state.chartX !== undefined && state.activeCoordinate?.x !== undefined) {
-        // Use the active coordinate x position relative to chart area
-        const chartWidth = state.chartX / (state.activeTooltipIndex / (chartData.length - 1 || 1));
-        const percentage = (state.activeCoordinate.x / chartWidth) * 100;
-        setScrubPercentage(Math.min(100, Math.max(0, percentage)));
-      } else if (chartData.length > 1) {
-        // Fallback: calculate from index
-        const percentage = ((state.activeTooltipIndex + 0.5) / chartData.length) * 100;
-        setScrubPercentage(percentage);
-      }
+      const index = state.activeTooltipIndex;
+      setActiveIndex(index);
+      // Snap gradient to the active data point's position (not raw cursor)
+      // Calculate percentage based on the snapped index
+      const percentage = chartData.length > 1 
+        ? (index / (chartData.length - 1)) * 100 
+        : 100;
+      setScrubPercentage(percentage);
     }
     if (state?.activePayload?.[0]?.payload && onHover) {
       onHover(state.activePayload[0].payload as DailyData);
