@@ -3,9 +3,10 @@ import { VerticalTimeline } from '@/components/dashboard/VerticalTimeline';
 import { MetricDisplay } from '@/components/MetricDisplay';
 import { TimeRangeSelector } from '@/components/TimeRangeSelector';
 import { PracticeChart } from '@/components/PracticeChart';
+import { IntradayChart } from '@/components/IntradayChart';
 import { StatsFooter } from '@/components/StatsFooter';
 import { parseCSV, PracticeSession } from '@/lib/csvParser';
-import { calculateAnalytics, filterDataByRange, downsampleData, calculateDelta, AnalyticsResult, DailyData } from '@/lib/practiceAnalytics';
+import { calculateAnalytics, filterDataByRange, downsampleData, calculateDelta, calculateIntradayData, AnalyticsResult, DailyData, IntradayData } from '@/lib/practiceAnalytics';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useMilestones } from '@/hooks/useMilestones';
@@ -15,13 +16,20 @@ import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 
 const APP_VERSION = 'v6';
-type TimeRange = '1W' | '1M' | '6M' | '1Y' | 'ALL';
+type TimeRange = '1D' | '1W' | '1M' | '6M' | '1Y' | 'ALL';
+
+interface RawSession {
+  started_at: string;
+  duration_seconds: number;
+}
 
 export function Dashboard() {
   const [analytics, setAnalytics] = useState<AnalyticsResult | null>(null);
+  const [rawSessions, setRawSessions] = useState<RawSession[]>([]);
   const [timeRange, setTimeRange] = useState<TimeRange>('1M');
   const [isLoading, setIsLoading] = useState(true);
   const [hoveredData, setHoveredData] = useState<DailyData | null>(null);
+  const [hoveredIntradayData, setHoveredIntradayData] = useState<IntradayData | null>(null);
   const { toast } = useToast();
   const { milestones, isLoading: milestonesLoading } = useMilestones();
   const { syncState, syncCalendar, isSyncing } = useCalendarSync();
@@ -52,8 +60,15 @@ export function Dashboard() {
 
       if (allData.length === 0) {
         setAnalytics(null);
+        setRawSessions([]);
         return;
       }
+
+      // Store raw sessions for intraday calculation
+      setRawSessions(allData.map(row => ({
+        started_at: row.started_at,
+        duration_seconds: row.duration_seconds,
+      })));
 
       const sessions: PracticeSession[] = allData.map(row => ({
         taskName: 'Practice',
@@ -100,17 +115,34 @@ export function Dashboard() {
     };
   }, []);
 
-  const { filteredData, delta } = useMemo(() => {
+  const { filteredData, delta, intradayData, baselineAverage } = useMemo(() => {
     if (!analytics) {
-      return { filteredData: [], delta: { value: 0, percentage: 0 } };
+      return { filteredData: [], delta: { value: 0, percentage: 0 }, intradayData: [], baselineAverage: 0 };
     }
+    
+    // For 1D view, calculate intraday data
+    if (timeRange === '1D') {
+      const intraday = calculateIntradayData(analytics.dailyData, rawSessions);
+      const yesterdayIdx = analytics.dailyData.length - 2;
+      const baseline = yesterdayIdx >= 0 ? analytics.dailyData[yesterdayIdx].cumulativeAverage : analytics.currentAverage;
+      const intradayDelta = intraday.length > 1 
+        ? intraday[intraday.length - 1].cumulativeAverage - intraday[0].cumulativeAverage
+        : 0;
+      return { 
+        filteredData: [], 
+        delta: { value: intradayDelta, percentage: 0 }, 
+        intradayData: intraday,
+        baselineAverage: baseline
+      };
+    }
+    
     let data = filterDataByRange(analytics.dailyData, timeRange, analytics.endDate);
     if (timeRange === '6M' || timeRange === '1Y' || timeRange === 'ALL') {
       data = downsampleData(data, 100);
     }
     const delta = calculateDelta(data);
-    return { filteredData: data, delta };
-  }, [analytics, timeRange]);
+    return { filteredData: data, delta, intradayData: [], baselineAverage: 0 };
+  }, [analytics, timeRange, rawSessions]);
 
   const handleManualSync = async () => {
     try {
@@ -188,11 +220,19 @@ export function Dashboard() {
                 <TimeRangeSelector selectedRange={timeRange} onRangeChange={setTimeRange} />
               </div>
               <div className="mt-4">
-                <PracticeChart
-                  data={filteredData}
-                  timeRange={timeRange}
-                  onHover={setHoveredData}
-                />
+                {timeRange === '1D' ? (
+                  <IntradayChart
+                    data={intradayData}
+                    baselineAverage={baselineAverage}
+                    onHover={setHoveredIntradayData}
+                  />
+                ) : (
+                  <PracticeChart
+                    data={filteredData}
+                    timeRange={timeRange}
+                    onHover={setHoveredData}
+                  />
+                )}
               </div>
               <div className="mt-4">
                 <StatsFooter

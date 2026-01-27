@@ -9,12 +9,12 @@ import {
   ReferenceLine,
 } from 'recharts';
 import { format } from 'date-fns';
-import { DailyData } from '@/lib/practiceAnalytics';
+import { IntradayData } from '@/lib/practiceAnalytics';
 
-interface PracticeChartProps {
-  data: DailyData[];
-  timeRange: '1D' | '1W' | '1M' | '6M' | '1Y' | 'ALL';
-  onHover?: (data: DailyData | null) => void;
+interface IntradayChartProps {
+  data: IntradayData[];
+  baselineAverage: number;
+  onHover?: (data: IntradayData | null) => void;
 }
 
 // Trade Republic exact colors
@@ -26,7 +26,7 @@ const COLORS = {
   white: '#FFFFFF',
 };
 
-export function PracticeChart({ data, timeRange, onHover }: PracticeChartProps) {
+export function IntradayChart({ data, baselineAverage, onHover }: IntradayChartProps) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [scrubPercentage, setScrubPercentage] = useState<number>(100);
 
@@ -34,35 +34,33 @@ export function PracticeChart({ data, timeRange, onHover }: PracticeChartProps) 
     return data.map((d, index) => ({
       ...d,
       index,
-      // Use timestamp for continuous time scale
-      timestamp: d.date.getTime(),
-      displayDate: format(d.date, 'd MMM'),
+      timestamp: d.time.getTime(),
+      displayTime: d.timeStr,
       averageHours: d.cumulativeAverage,
     }));
   }, [data]);
 
-  // Calculate exactly 5 equidistant time-based ticks
+  // Calculate exactly 5 equidistant time-based ticks (00:00, 06:00, 12:00, 18:00, 24:00)
   const xAxisTicks = useMemo(() => {
     if (chartData.length < 2) return undefined;
     
     const startTime = chartData[0].timestamp;
     const endTime = chartData[chartData.length - 1].timestamp;
-    const timeRange = endTime - startTime;
     
-    // Generate 5 equidistant timestamps
-    return [0, 0.25, 0.5, 0.75, 1].map(fraction => 
-      startTime + (timeRange * fraction)
-    );
+    // For 1D view, show hourly ticks at key intervals
+    return [0, 6, 12, 18, 23].map(hour => {
+      const baseTime = new Date(chartData[0].time);
+      baseTime.setHours(hour, 0, 0, 0);
+      return baseTime.getTime();
+    }).filter(t => t >= startTime && t <= endTime);
   }, [chartData]);
 
-  // Calculate the data range to determine formatting precision
-  const { range, baselineValue } = useMemo(() => {
-    if (chartData.length === 0) return { minValue: 0, maxValue: 0, range: 0, baselineValue: 0 };
+  const { range } = useMemo(() => {
+    if (chartData.length === 0) return { minValue: 0, maxValue: 0, range: 0 };
     const values = chartData.map(d => d.averageHours);
     const min = Math.min(...values);
     const max = Math.max(...values);
-    const baseline = chartData[0]?.averageHours || 0;
-    return { minValue: min, maxValue: max, range: max - min, baselineValue: baseline };
+    return { minValue: min, maxValue: max, range: max - min };
   }, [chartData]);
 
   const formatYAxis = useCallback((value: number) => {
@@ -84,21 +82,30 @@ export function PracticeChart({ data, timeRange, onHover }: PracticeChartProps) 
   }, [range]);
 
   const formatXAxisTick = useCallback((timestamp: number) => {
-    return format(new Date(timestamp), 'd MMM');
+    return format(new Date(timestamp), 'HH:mm');
   }, []);
+
+  // Format hours for tooltip display
+  const formatHoursMinutes = (hours: number) => {
+    const totalMinutes = Math.round(hours * 60);
+    const h = Math.floor(totalMinutes / 60);
+    const m = totalMinutes % 60;
+    if (h === 0) return `${m}m`;
+    if (m === 0) return `${h}h`;
+    return `${h}h ${m}m`;
+  };
 
   const handleMouseMove = useCallback((state: any) => {
     if (state?.activeTooltipIndex !== undefined) {
       const index = state.activeTooltipIndex;
       setActiveIndex(index);
-      // Snap gradient to the active data point's position
       const percentage = chartData.length > 1 
         ? (index / (chartData.length - 1)) * 100 
         : 100;
       setScrubPercentage(percentage);
     }
     if (state?.activePayload?.[0]?.payload && onHover) {
-      onHover(state.activePayload[0].payload as DailyData);
+      onHover(state.activePayload[0].payload as IntradayData);
     }
   }, [onHover, chartData.length]);
 
@@ -113,85 +120,42 @@ export function PracticeChart({ data, timeRange, onHover }: PracticeChartProps) 
   if (data.length === 0) {
     return (
       <div className="flex items-center justify-center h-64 text-muted-foreground">
-        No data available for this time range
+        No intraday data available
       </div>
     );
   }
 
-  // Determine line color based on trend (last value vs first value)
+  // Determine line color based on trend
   const lastValue = chartData[chartData.length - 1]?.averageHours || 0;
   const firstValue = chartData[0]?.averageHours || 0;
   const isPositiveTrend = lastValue >= firstValue;
   const lineColor = isPositiveTrend ? COLORS.positive : COLORS.negative;
 
-  // Custom active dot with glow effect and pulse animation
+  // Custom active dot with glow effect
   const renderActiveDot = (props: any) => {
     const { cx, cy, payload } = props;
-    const isAboveBaseline = payload.averageHours >= baselineValue;
+    const isAboveBaseline = payload.averageHours >= baselineAverage;
     const dotColor = isAboveBaseline ? COLORS.positive : COLORS.negative;
     
     return (
       <g>
-        {/* Outer pulse ring */}
-        <circle
-          cx={cx}
-          cy={cy}
-          r={24}
-          fill={dotColor}
-          opacity={0.1}
-          className="animate-pulse-ring"
-        />
-        {/* Middle glow */}
-        <circle
-          cx={cx}
-          cy={cy}
-          r={16}
-          fill={dotColor}
-          opacity={0.2}
-          className="animate-pulse-ring-delay"
-        />
-        {/* Inner glow */}
-        <circle
-          cx={cx}
-          cy={cy}
-          r={10}
-          fill={dotColor}
-          opacity={0.4}
-        />
-        {/* Solid inner dot */}
-        <circle
-          cx={cx}
-          cy={cy}
-          r={6}
-          fill={dotColor}
-          stroke="none"
-        />
+        <circle cx={cx} cy={cy} r={24} fill={dotColor} opacity={0.1} className="animate-pulse-ring" />
+        <circle cx={cx} cy={cy} r={16} fill={dotColor} opacity={0.2} className="animate-pulse-ring-delay" />
+        <circle cx={cx} cy={cy} r={10} fill={dotColor} opacity={0.4} />
+        <circle cx={cx} cy={cy} r={6} fill={dotColor} stroke="none" />
       </g>
     );
   };
 
-  // Format hours for tooltip display
-  const formatHoursMinutes = (hours: number) => {
-    const totalMinutes = Math.round(hours * 60);
-    const h = Math.floor(totalMinutes / 60);
-    const m = totalMinutes % 60;
-    if (h === 0) return `${m}m`;
-    if (m === 0) return `${h}h`;
-    return `${h}h ${m}m`;
-  };
-
-  // Custom floating label tooltip with edge clamping
+  // Custom tooltip
   const CustomTooltip = ({ active, payload, coordinate }: any) => {
     if (active && payload && payload.length && coordinate) {
-      const data = payload[0].payload as DailyData;
+      const d = payload[0].payload;
       
-      // Calculate the delta: how much this day changed the average
-      const previousAverage = data.dayNumber > 1 
-        ? (data.cumulativeHours - data.hoursPlayed) / (data.dayNumber - 1)
-        : 0;
-      const averageDelta = data.cumulativeAverage - previousAverage;
+      // Calculate delta from previous hour
+      const prevAvg = d.index > 0 ? chartData[d.index - 1]?.averageHours : d.averageHours;
+      const delta = d.averageHours - prevAvg;
       
-      // Format delta in seconds/minutes
       const formatDeltaValue = (hours: number) => {
         const totalSeconds = Math.round(Math.abs(hours) * 3600);
         const m = Math.floor(totalSeconds / 60);
@@ -202,44 +166,31 @@ export function PracticeChart({ data, timeRange, onHover }: PracticeChartProps) 
         return `${sign}${m}m ${s}s`;
       };
 
-      // Edge clamping calculation
-      // Tooltip is roughly 180px wide, so half is 90px
+      // Edge clamping
       const tooltipHalfWidth = 90;
-      const leftEdge = 8; // Minimum padding from left
-      const rightEdge = 8; // Minimum padding from right (relative to chart)
-      
-      // Get approximate chart width from the container (assume ~360px mobile, will be in margin area)
-      // The coordinate.x is relative to the chart plotting area
+      const leftEdge = 8;
       const pointX = coordinate.x;
-      
-      // Calculate the offset needed to keep tooltip visible
-      // Default: center the tooltip (translateX -50%)
-      // If too close to left: shift right
-      // If too close to right: shift left
       let offsetX = 0;
       
       if (pointX < tooltipHalfWidth + leftEdge) {
-        // Near left edge - shift tooltip right
         offsetX = tooltipHalfWidth - pointX + leftEdge;
       }
       
       return (
         <div 
           className="flex items-center gap-1.5 pointer-events-none whitespace-nowrap"
-          style={{ 
-            transform: `translateX(calc(-50% + ${offsetX}px))`,
-          }}
+          style={{ transform: `translateX(calc(-50% + ${offsetX}px))` }}
         >
           <span className="text-sm" style={{ color: COLORS.muted }}>
-            {format(data.date, 'd MMM')}
+            {d.timeStr}
           </span>
           <span className="text-sm" style={{ color: COLORS.muted }}>•</span>
           <span className="text-sm" style={{ color: COLORS.muted }}>
-            {formatHoursMinutes(data.hoursPlayed)}
+            {formatHoursMinutes(d.hoursPlayedThisInterval)} played
           </span>
           <span className="text-sm" style={{ color: COLORS.muted }}>•</span>
           <span className="text-sm" style={{ color: COLORS.muted }}>
-            {formatDeltaValue(averageDelta)}
+            {formatDeltaValue(delta)}
           </span>
         </div>
       );
@@ -247,8 +198,7 @@ export function PracticeChart({ data, timeRange, onHover }: PracticeChartProps) 
     return null;
   };
 
-  // Generate a unique gradient ID to avoid conflicts
-  const gradientId = `scrubGradient-${Math.random().toString(36).substr(2, 9)}`;
+  const gradientId = `intradayGradient-${Math.random().toString(36).substr(2, 9)}`;
 
   return (
     <div className="w-full h-72 md:h-80 relative">
@@ -260,13 +210,9 @@ export function PracticeChart({ data, timeRange, onHover }: PracticeChartProps) 
           onMouseLeave={handleMouseLeave}
         >
           <defs>
-            {/* Dynamic gradient for scrubbing effect */}
             <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
-              {/* Left portion - active color up to scrub position */}
               <stop offset={`${scrubPercentage}%`} stopColor={lineColor} />
-              {/* Sharp transition at scrub position */}
               <stop offset={`${scrubPercentage}%`} stopColor={COLORS.unreached} />
-              {/* Right portion - inactive gray */}
               <stop offset="100%" stopColor={COLORS.unreached} />
             </linearGradient>
           </defs>
@@ -297,7 +243,7 @@ export function PracticeChart({ data, timeRange, onHover }: PracticeChartProps) 
             width={0}
           />
           <ReferenceLine
-            y={baselineValue}
+            y={baselineAverage}
             stroke={COLORS.muted}
             strokeDasharray="4 4"
             strokeWidth={1.5}
@@ -310,7 +256,6 @@ export function PracticeChart({ data, timeRange, onHover }: PracticeChartProps) 
             wrapperStyle={{ zIndex: 100 }}
           />
           
-          {/* Single line with dynamic gradient stroke */}
           <Line
             type="linear"
             dataKey="averageHours"
