@@ -1,4 +1,4 @@
-import { startOfDay, differenceInDays, addDays, format, subDays, subMonths, subYears } from 'date-fns';
+import { startOfDay, differenceInDays, addDays, format, subDays, subMonths, subYears, addHours, startOfHour, isToday, isSameDay } from 'date-fns';
 import { PracticeSession } from './csvParser';
 
 export interface DailyData {
@@ -8,6 +8,16 @@ export interface DailyData {
   cumulativeHours: number;
   cumulativeAverage: number;
   dayNumber: number;
+}
+
+// Intraday data point for 1D view
+export interface IntradayData {
+  time: Date;
+  timeStr: string;
+  hourOfDay: number;
+  cumulativeAverage: number;
+  hoursPlayedThisInterval: number;
+  isCurrentHour: boolean;
 }
 
 export interface AnalyticsResult {
@@ -91,11 +101,17 @@ const VISUAL_START_DATE = new Date('2024-03-01');
  */
 export function filterDataByRange(
   data: DailyData[],
-  range: '1W' | '1M' | '6M' | '1Y' | 'ALL',
+  range: '1D' | '1W' | '1M' | '6M' | '1Y' | 'ALL',
   endDate: Date
 ): DailyData[] {
   if (data.length === 0) {
     return data;
+  }
+  
+  // 1D is handled separately - return today's data point for baseline
+  if (range === '1D') {
+    const today = startOfDay(new Date());
+    return data.filter(d => isSameDay(d.date, today));
   }
   
   let startDate: Date;
@@ -205,4 +221,104 @@ export function formatDelta(hours: number): string {
   }
   
   return `${signPrefix}${m}m ${s}s`;
+}
+
+/**
+ * Calculate intraday average evolution for the 1D view
+ * Shows how the lifetime average changes throughout the day at hourly intervals
+ */
+export function calculateIntradayData(
+  dailyData: DailyData[],
+  sessions: { started_at: string; duration_seconds: number }[]
+): IntradayData[] {
+  const today = startOfDay(new Date());
+  const now = new Date();
+  const currentHour = now.getHours();
+  
+  // Get yesterday's cumulative data (baseline for today)
+  const yesterdayData = dailyData.find(d => 
+    isSameDay(d.date, subDays(today, 1))
+  );
+  
+  // If no yesterday data, use the last available data point before today
+  const baselineData = yesterdayData || dailyData.filter(d => d.date < today).pop();
+  
+  if (!baselineData) {
+    // No historical data, return empty
+    return [];
+  }
+  
+  const baselineHours = baselineData.cumulativeHours;
+  const baselineDays = baselineData.dayNumber;
+  
+  // Get today's sessions and organize by hour
+  const todaySessions = sessions.filter(s => {
+    const sessionDate = new Date(s.started_at);
+    return isSameDay(sessionDate, today);
+  });
+  
+  // Create hourly breakdown of practice time
+  const hourlyPractice = new Map<number, number>();
+  
+  for (const session of todaySessions) {
+    const startTime = new Date(session.started_at);
+    const endTime = new Date(startTime.getTime() + session.duration_seconds * 1000);
+    const startHour = startTime.getHours();
+    const endHour = endTime.getHours();
+    
+    // Distribute session time across hours if it spans multiple hours
+    if (startHour === endHour) {
+      const current = hourlyPractice.get(startHour) || 0;
+      hourlyPractice.set(startHour, current + session.duration_seconds / 3600);
+    } else {
+      // Session spans multiple hours - distribute proportionally
+      for (let h = startHour; h <= endHour; h++) {
+        let hoursInThisSlot = 0;
+        if (h === startHour) {
+          hoursInThisSlot = (60 - startTime.getMinutes()) / 60;
+        } else if (h === endHour) {
+          hoursInThisSlot = endTime.getMinutes() / 60;
+        } else {
+          hoursInThisSlot = 1;
+        }
+        const current = hourlyPractice.get(h) || 0;
+        hourlyPractice.set(h, current + hoursInThisSlot);
+      }
+    }
+  }
+  
+  // Generate intraday data points for each hour
+  const intradayData: IntradayData[] = [];
+  let cumulativeTodayHours = 0;
+  
+  // Only show hours up to current hour (or all 24 if viewing historical day)
+  const maxHour = isToday(today) ? currentHour : 23;
+  
+  for (let hour = 0; hour <= maxHour; hour++) {
+    const practiceThisHour = hourlyPractice.get(hour) || 0;
+    cumulativeTodayHours += practiceThisHour;
+    
+    // Calculate the "effective" day count at this point in the day
+    // At hour 0, we're at the start of a new day (dayNumber = baselineDays + fraction)
+    // The fraction represents how much of the day has passed
+    const fractionOfDay = (hour + 1) / 24;
+    const effectiveDays = baselineDays + fractionOfDay;
+    
+    // Calculate the cumulative average at this point
+    const totalHours = baselineHours + cumulativeTodayHours;
+    const cumulativeAverage = totalHours / effectiveDays;
+    
+    const time = addHours(today, hour);
+    
+    intradayData.push({
+      time,
+      timeStr: format(time, 'HH:mm'),
+      hourOfDay: hour,
+      cumulativeAverage,
+      hoursPlayedThisInterval: practiceThisHour,
+      isCurrentHour: hour === currentHour && isToday(today),
+    });
+  }
+  
+  return intradayData;
 }
