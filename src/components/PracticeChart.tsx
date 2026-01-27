@@ -181,8 +181,8 @@ export function PracticeChart({ data, timeRange, onHover }: PracticeChartProps) 
   };
 
   // Custom floating label tooltip with edge clamping
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
+  const CustomTooltip = ({ active, payload, coordinate }: any) => {
+    if (active && payload && payload.length && coordinate) {
       const data = payload[0].payload as DailyData;
       
       // Calculate the delta: how much this day changed the average
@@ -201,11 +201,34 @@ export function PracticeChart({ data, timeRange, onHover }: PracticeChartProps) 
         if (s === 0) return `${sign}${m}m`;
         return `${sign}${m}m ${s}s`;
       };
+
+      // Edge clamping calculation
+      // Tooltip is roughly 180px wide, so half is 90px
+      const tooltipHalfWidth = 90;
+      const leftEdge = 8; // Minimum padding from left
+      const rightEdge = 8; // Minimum padding from right (relative to chart)
+      
+      // Get approximate chart width from the container (assume ~360px mobile, will be in margin area)
+      // The coordinate.x is relative to the chart plotting area
+      const pointX = coordinate.x;
+      
+      // Calculate the offset needed to keep tooltip visible
+      // Default: center the tooltip (translateX -50%)
+      // If too close to left: shift right
+      // If too close to right: shift left
+      let offsetX = 0;
+      
+      if (pointX < tooltipHalfWidth + leftEdge) {
+        // Near left edge - shift tooltip right
+        offsetX = tooltipHalfWidth - pointX + leftEdge;
+      }
       
       return (
         <div 
           className="flex items-center gap-1.5 pointer-events-none whitespace-nowrap"
-          style={{ transform: 'translateX(-50%)' }}
+          style={{ 
+            transform: `translateX(calc(-50% + ${offsetX}px))`,
+          }}
         >
           <span className="text-sm" style={{ color: COLORS.muted }}>
             {format(data.date, 'd MMM')}
