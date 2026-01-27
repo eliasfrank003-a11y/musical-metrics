@@ -28,6 +28,7 @@ const COLORS = {
 
 export function PracticeChart({ data, timeRange, onHover }: PracticeChartProps) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const [scrubPercentage, setScrubPercentage] = useState<number>(100);
 
   const chartData = useMemo(() => {
     return data.map((d, index) => ({
@@ -89,14 +90,26 @@ export function PracticeChart({ data, timeRange, onHover }: PracticeChartProps) 
   const handleMouseMove = useCallback((state: any) => {
     if (state?.activeTooltipIndex !== undefined) {
       setActiveIndex(state.activeTooltipIndex);
+      // Calculate scrub percentage based on chart coordinates
+      if (state.chartX !== undefined && state.activeCoordinate?.x !== undefined) {
+        // Use the active coordinate x position relative to chart area
+        const chartWidth = state.chartX / (state.activeTooltipIndex / (chartData.length - 1 || 1));
+        const percentage = (state.activeCoordinate.x / chartWidth) * 100;
+        setScrubPercentage(Math.min(100, Math.max(0, percentage)));
+      } else if (chartData.length > 1) {
+        // Fallback: calculate from index
+        const percentage = ((state.activeTooltipIndex + 0.5) / chartData.length) * 100;
+        setScrubPercentage(percentage);
+      }
     }
     if (state?.activePayload?.[0]?.payload && onHover) {
       onHover(state.activePayload[0].payload as DailyData);
     }
-  }, [onHover]);
+  }, [onHover, chartData.length]);
 
   const handleMouseLeave = useCallback(() => {
     setActiveIndex(null);
+    setScrubPercentage(100);
     if (onHover) {
       onHover(null);
     }
@@ -115,11 +128,6 @@ export function PracticeChart({ data, timeRange, onHover }: PracticeChartProps) 
   const firstValue = chartData[0]?.averageHours || 0;
   const isPositiveTrend = lastValue >= firstValue;
   const lineColor = isPositiveTrend ? COLORS.positive : COLORS.negative;
-
-  // Calculate clip path position for split-line effect
-  const clipPercentage = activeIndex !== null 
-    ? ((activeIndex + 1) / chartData.length) * 100 
-    : 100;
 
   // Custom active dot with glow effect and pulse animation
   const renderActiveDot = (props: any) => {
@@ -185,6 +193,9 @@ export function PracticeChart({ data, timeRange, onHover }: PracticeChartProps) 
     return null;
   };
 
+  // Generate a unique gradient ID to avoid conflicts
+  const gradientId = `scrubGradient-${Math.random().toString(36).substr(2, 9)}`;
+
   return (
     <div className="w-full h-72 md:h-80 relative">
       <ResponsiveContainer width="100%" height="100%">
@@ -195,14 +206,15 @@ export function PracticeChart({ data, timeRange, onHover }: PracticeChartProps) 
           onMouseLeave={handleMouseLeave}
         >
           <defs>
-            {/* Clip path for colored portion (left of cursor) */}
-            <clipPath id="coloredClip">
-              <rect x="0" y="0" width={`${clipPercentage}%`} height="100%" />
-            </clipPath>
-            {/* Clip path for unreached portion (right of cursor) */}
-            <clipPath id="uncoloredClip">
-              <rect x={`${clipPercentage}%`} y="0" width={`${100 - clipPercentage}%`} height="100%" />
-            </clipPath>
+            {/* Dynamic gradient for scrubbing effect */}
+            <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
+              {/* Left portion - active color up to scrub position */}
+              <stop offset={`${scrubPercentage}%`} stopColor={lineColor} />
+              {/* Sharp transition at scrub position */}
+              <stop offset={`${scrubPercentage}%`} stopColor={COLORS.unreached} />
+              {/* Right portion - inactive gray */}
+              <stop offset="100%" stopColor={COLORS.unreached} />
+            </linearGradient>
           </defs>
           
           <XAxis
@@ -244,29 +256,15 @@ export function PracticeChart({ data, timeRange, onHover }: PracticeChartProps) 
             wrapperStyle={{ zIndex: 100 }}
           />
           
-          {/* Unreached line (gray, right of cursor) - render first so it's behind */}
-          {activeIndex !== null && (
-            <Line
-              type="linear"
-              dataKey="averageHours"
-              stroke={COLORS.unreached}
-              strokeWidth={2.5}
-              dot={false}
-              activeDot={false}
-              clipPath="url(#uncoloredClip)"
-              isAnimationActive={false}
-            />
-          )}
-          
-          {/* Colored line (left of cursor or full if not hovering) */}
+          {/* Single line with dynamic gradient stroke */}
           <Line
             type="linear"
             dataKey="averageHours"
-            stroke={lineColor}
+            stroke={activeIndex !== null ? `url(#${gradientId})` : lineColor}
             strokeWidth={2.5}
             dot={false}
             activeDot={renderActiveDot}
-            clipPath={activeIndex !== null ? "url(#coloredClip)" : undefined}
+            isAnimationActive={false}
           />
         </LineChart>
       </ResponsiveContainer>
