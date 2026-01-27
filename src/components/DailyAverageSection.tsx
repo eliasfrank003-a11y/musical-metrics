@@ -126,9 +126,9 @@ export function DailyAverageSection({ onAnalyticsUpdate }: DailyAverageSectionPr
     // For 1D view, calculate intraday data with plateau-slope model
     if (timeRange === '1D') {
       const { intradayData: intraday, baselineAverage: baseline } = calculateIntradayData(analytics.dailyData, rawSessions);
-      const intradayDelta = intraday.length > 1 
-        ? intraday[intraday.length - 1].cumulativeAverage - intraday[0].cumulativeAverage
-        : 0;
+      // Delta is the difference between current average and yesterday's baseline
+      const currentAvg = intraday.length > 0 ? intraday[intraday.length - 1].cumulativeAverage : analytics.currentAverage;
+      const intradayDelta = currentAvg - baseline;
       return { 
         filteredData: [], 
         delta: { value: intradayDelta, percentage: 0 }, 

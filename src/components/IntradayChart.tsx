@@ -40,15 +40,16 @@ export function IntradayChart({ data, baselineAverage, onHover }: IntradayChartP
     }));
   }, [data]);
 
-  // Calculate exactly 5 equidistant time-based ticks (00:00, 06:00, 12:00, 18:00, 24:00)
+  // Calculate time ticks - only show ticks up to current hour
   const xAxisTicks = useMemo(() => {
     if (chartData.length < 2) return undefined;
     
     const startTime = chartData[0].timestamp;
     const endTime = chartData[chartData.length - 1].timestamp;
+    const currentHour = new Date().getHours();
     
-    // For 1D view, show hourly ticks at key intervals
-    return [0, 6, 12, 18, 23].map(hour => {
+    // Key hourly intervals, filtered to only include hours up to current time
+    return [0, 6, 12, 18, currentHour].map(hour => {
       const baseTime = new Date(chartData[0].time);
       baseTime.setHours(hour, 0, 0, 0);
       return baseTime.getTime();
