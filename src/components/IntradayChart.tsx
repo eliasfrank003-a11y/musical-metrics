@@ -55,13 +55,24 @@ export function IntradayChart({ data, baselineAverage, onHover }: IntradayChartP
     }).filter(t => t >= startTime && t <= endTime);
   }, [chartData]);
 
-  const { range } = useMemo(() => {
-    if (chartData.length === 0) return { minValue: 0, maxValue: 0, range: 0 };
-    const values = chartData.map(d => d.averageHours);
-    const min = Math.min(...values);
-    const max = Math.max(...values);
-    return { minValue: min, maxValue: max, range: max - min };
-  }, [chartData]);
+  // Calculate Y-axis domain to always include baseline and show separation
+  const { yMin, yMax, range } = useMemo(() => {
+    if (chartData.length === 0) return { yMin: 0, yMax: 0, range: 0 };
+    const dataValues = chartData.map(d => d.averageHours);
+    const allValues = [...dataValues, baselineAverage];
+    const min = Math.min(...allValues);
+    const max = Math.max(...allValues);
+    
+    // Add padding to ensure visual separation (at least 5% of range on each side)
+    const dataRange = max - min;
+    const padding = dataRange > 0 ? dataRange * 0.15 : Math.abs(min) * 0.05;
+    
+    return { 
+      yMin: min - padding, 
+      yMax: max + padding, 
+      range: dataRange 
+    };
+  }, [chartData, baselineAverage]);
 
   const formatYAxis = useCallback((value: number) => {
     const totalSeconds = Math.round(value * 3600);
@@ -125,11 +136,10 @@ export function IntradayChart({ data, baselineAverage, onHover }: IntradayChartP
     );
   }
 
-  // Determine line color based on trend
+  // Determine line color based on whether current value is above or below baseline
   const lastValue = chartData[chartData.length - 1]?.averageHours || 0;
-  const firstValue = chartData[0]?.averageHours || 0;
-  const isPositiveTrend = lastValue >= firstValue;
-  const lineColor = isPositiveTrend ? COLORS.positive : COLORS.negative;
+  const isAboveBaseline = lastValue >= baselineAverage;
+  const lineColor = isAboveBaseline ? COLORS.positive : COLORS.negative;
 
   // Custom active dot with glow effect
   const renderActiveDot = (props: any) => {
@@ -230,7 +240,7 @@ export function IntradayChart({ data, baselineAverage, onHover }: IntradayChartP
             tickFormatter={formatXAxisTick}
           />
           <YAxis
-            domain={['dataMin', 'dataMax']}
+            domain={[yMin, yMax]}
             tickCount={4}
             allowDecimals={true}
             tickFormatter={formatYAxis}
