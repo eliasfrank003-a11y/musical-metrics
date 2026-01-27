@@ -156,11 +156,9 @@ const Index = () => {
       };
     }
     
-    // For 1D view, calculate intraday data
+    // For 1D view, calculate intraday data with plateau-slope model
     if (timeRange === '1D') {
-      const intraday = calculateIntradayData(analytics.dailyData, rawSessions);
-      const yesterdayIdx = analytics.dailyData.length - 2;
-      const baseline = yesterdayIdx >= 0 ? analytics.dailyData[yesterdayIdx].cumulativeAverage : analytics.currentAverage;
+      const { intradayData: intraday, baselineAverage: baseline } = calculateIntradayData(analytics.dailyData, rawSessions);
       const intradayDelta = intraday.length > 1 
         ? intraday[intraday.length - 1].cumulativeAverage - intraday[0].cumulativeAverage
         : 0;

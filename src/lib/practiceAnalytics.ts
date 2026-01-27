@@ -224,13 +224,19 @@ export function formatDelta(hours: number): string {
 }
 
 /**
- * Calculate intraday average evolution for the 1D view
- * Shows how the lifetime average changes throughout the day at hourly intervals
+ * Calculate intraday average evolution for the 1D view using the Plateau-Slope model
+ * 
+ * Logic:
+ * - Baseline: Yesterday's final average (horizontal dashed line)
+ * - Starting Point (00:00): Total Previous Playtime / (Total Previous Days + 1)
+ * - Idle Periods: Horizontal plateaus (no decay)
+ * - Practice Sessions: Linear upward slopes
+ * - Post-Practice: New horizontal plateau at higher value
  */
 export function calculateIntradayData(
   dailyData: DailyData[],
   sessions: { started_at: string; duration_seconds: number }[]
-): IntradayData[] {
+): { intradayData: IntradayData[]; baselineAverage: number } {
   const today = startOfDay(new Date());
   const now = new Date();
   const currentHour = now.getHours();
@@ -244,81 +250,102 @@ export function calculateIntradayData(
   const baselineData = yesterdayData || dailyData.filter(d => d.date < today).pop();
   
   if (!baselineData) {
-    // No historical data, return empty
-    return [];
+    return { intradayData: [], baselineAverage: 0 };
   }
   
+  // Yesterday's final average is the baseline (the target line)
+  const baselineAverage = baselineData.cumulativeAverage;
   const baselineHours = baselineData.cumulativeHours;
   const baselineDays = baselineData.dayNumber;
   
-  // Get today's sessions and organize by hour
-  const todaySessions = sessions.filter(s => {
-    const sessionDate = new Date(s.started_at);
-    return isSameDay(sessionDate, today);
-  });
+  // Today is day (baselineDays + 1)
+  const todayDayNumber = baselineDays + 1;
   
-  // Create hourly breakdown of practice time
-  const hourlyPractice = new Map<number, number>();
+  // Get today's sessions
+  const todaySessions = sessions
+    .filter(s => {
+      const sessionDate = new Date(s.started_at);
+      return isSameDay(sessionDate, today);
+    })
+    .map(s => ({
+      startTime: new Date(s.started_at),
+      endTime: new Date(new Date(s.started_at).getTime() + s.duration_seconds * 1000),
+      durationHours: s.duration_seconds / 3600,
+    }))
+    .sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
   
-  for (const session of todaySessions) {
-    const startTime = new Date(session.started_at);
-    const endTime = new Date(startTime.getTime() + session.duration_seconds * 1000);
-    const startHour = startTime.getHours();
-    const endHour = endTime.getHours();
-    
-    // Distribute session time across hours if it spans multiple hours
-    if (startHour === endHour) {
-      const current = hourlyPractice.get(startHour) || 0;
-      hourlyPractice.set(startHour, current + session.duration_seconds / 3600);
-    } else {
-      // Session spans multiple hours - distribute proportionally
-      for (let h = startHour; h <= endHour; h++) {
-        let hoursInThisSlot = 0;
-        if (h === startHour) {
-          hoursInThisSlot = (60 - startTime.getMinutes()) / 60;
-        } else if (h === endHour) {
-          hoursInThisSlot = endTime.getMinutes() / 60;
-        } else {
-          hoursInThisSlot = 1;
-        }
-        const current = hourlyPractice.get(h) || 0;
-        hourlyPractice.set(h, current + hoursInThisSlot);
-      }
-    }
-  }
-  
-  // Generate intraday data points for each hour
+  // Generate data points - we need points at session boundaries for accurate slopes
   const intradayData: IntradayData[] = [];
   let cumulativeTodayHours = 0;
   
-  // Only show hours up to current hour (or all 24 if viewing historical day)
+  // Calculate average: (baselineHours + todayHours) / todayDayNumber
+  const calcAverage = (todayHours: number) => 
+    (baselineHours + todayHours) / todayDayNumber;
+  
+  // Only show up to current hour (or all 24 if viewing historical day)
   const maxHour = isToday(today) ? currentHour : 23;
   
+  // Create a set of important time points (hour boundaries + session boundaries)
+  const timePoints: Date[] = [];
+  
+  // Add hourly points
   for (let hour = 0; hour <= maxHour; hour++) {
-    const practiceThisHour = hourlyPractice.get(hour) || 0;
-    cumulativeTodayHours += practiceThisHour;
+    timePoints.push(addHours(today, hour));
+  }
+  
+  // Add session start and end points (if within our time range)
+  for (const session of todaySessions) {
+    if (session.startTime.getHours() <= maxHour) {
+      timePoints.push(session.startTime);
+    }
+    if (session.endTime.getHours() <= maxHour || 
+        (session.endTime.getHours() === maxHour && session.endTime.getMinutes() === 0)) {
+      timePoints.push(session.endTime);
+    }
+  }
+  
+  // Sort and deduplicate time points
+  const sortedTimePoints = [...new Set(timePoints.map(t => t.getTime()))]
+    .sort((a, b) => a - b)
+    .map(t => new Date(t));
+  
+  // Process each time point
+  for (const time of sortedTimePoints) {
+    const hour = time.getHours();
+    const minute = time.getMinutes();
     
-    // Calculate the "effective" day count at this point in the day
-    // At hour 0, we're at the start of a new day (dayNumber = baselineDays + fraction)
-    // The fraction represents how much of the day has passed
-    const fractionOfDay = (hour + 1) / 24;
-    const effectiveDays = baselineDays + fractionOfDay;
+    // Calculate cumulative hours at this exact moment
+    let hoursAtThisPoint = 0;
+    let hoursPlayedThisInterval = 0;
     
-    // Calculate the cumulative average at this point
-    const totalHours = baselineHours + cumulativeTodayHours;
-    const cumulativeAverage = totalHours / effectiveDays;
+    for (const session of todaySessions) {
+      if (time >= session.endTime) {
+        // Session fully completed before this point
+        hoursAtThisPoint += session.durationHours;
+      } else if (time > session.startTime && time < session.endTime) {
+        // Currently in the middle of this session
+        const elapsedMs = time.getTime() - session.startTime.getTime();
+        const elapsedHours = elapsedMs / (1000 * 60 * 60);
+        hoursAtThisPoint += elapsedHours;
+      }
+      
+      // Check if this point is during a session (for display purposes)
+      if (time >= session.startTime && time <= session.endTime) {
+        hoursPlayedThisInterval = session.durationHours;
+      }
+    }
     
-    const time = addHours(today, hour);
+    const cumulativeAverage = calcAverage(hoursAtThisPoint);
     
     intradayData.push({
       time,
       timeStr: format(time, 'HH:mm'),
       hourOfDay: hour,
       cumulativeAverage,
-      hoursPlayedThisInterval: practiceThisHour,
+      hoursPlayedThisInterval,
       isCurrentHour: hour === currentHour && isToday(today),
     });
   }
   
-  return intradayData;
+  return { intradayData, baselineAverage };
 }
