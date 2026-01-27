@@ -29,8 +29,6 @@ const COLORS = {
 export function PracticeChart({ data, timeRange, onHover }: PracticeChartProps) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [scrubPercentage, setScrubPercentage] = useState<number>(100);
-  const [activeCoordinate, setActiveCoordinate] = useState<{ x: number } | null>(null);
-  const [chartWidth, setChartWidth] = useState<number>(0);
 
   const chartData = useMemo(() => {
     return data.map((d, index) => ({
@@ -93,23 +91,11 @@ export function PracticeChart({ data, timeRange, onHover }: PracticeChartProps) 
     if (state?.activeTooltipIndex !== undefined) {
       const index = state.activeTooltipIndex;
       setActiveIndex(index);
-      // Snap gradient to the active data point's position (not raw cursor)
+      // Snap gradient to the active data point's position
       const percentage = chartData.length > 1 
         ? (index / (chartData.length - 1)) * 100 
         : 100;
       setScrubPercentage(percentage);
-      
-      // Store coordinate for tooltip clamping
-      if (state.activeCoordinate) {
-        setActiveCoordinate({ x: state.activeCoordinate.x });
-      }
-      // Store chart width from the chart area
-      if (state.chartX !== undefined && state.activeTooltipIndex !== undefined && chartData.length > 1) {
-        const estimatedWidth = state.activeCoordinate?.x / (index / (chartData.length - 1));
-        if (estimatedWidth && estimatedWidth > 0) {
-          setChartWidth(estimatedWidth);
-        }
-      }
     }
     if (state?.activePayload?.[0]?.payload && onHover) {
       onHover(state.activePayload[0].payload as DailyData);
@@ -119,7 +105,6 @@ export function PracticeChart({ data, timeRange, onHover }: PracticeChartProps) 
   const handleMouseLeave = useCallback(() => {
     setActiveIndex(null);
     setScrubPercentage(100);
-    setActiveCoordinate(null);
     if (onHover) {
       onHover(null);
     }
@@ -196,7 +181,7 @@ export function PracticeChart({ data, timeRange, onHover }: PracticeChartProps) 
   };
 
   // Custom floating label tooltip with edge clamping
-  const CustomTooltip = ({ active, payload, coordinate }: any) => {
+  const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload as DailyData;
       
@@ -216,35 +201,11 @@ export function PracticeChart({ data, timeRange, onHover }: PracticeChartProps) 
         if (s === 0) return `${sign}${m}m`;
         return `${sign}${m}m ${s}s`;
       };
-
-      // Calculate clamped horizontal position
-      // Tooltip estimated width ~160px, padding from edges ~16px
-      const tooltipHalfWidth = 80;
-      const edgePadding = 16;
-      const currentX = activeCoordinate?.x || coordinate?.x || 0;
-      const maxX = chartWidth || 300;
-      
-      let translateX = -50; // Default: center on point
-      
-      // Clamp to left edge
-      if (currentX < tooltipHalfWidth + edgePadding) {
-        translateX = -(currentX - edgePadding) / (tooltipHalfWidth * 2) * 100;
-        translateX = Math.max(translateX, 0);
-      }
-      // Clamp to right edge
-      else if (currentX > maxX - tooltipHalfWidth - edgePadding) {
-        const overflow = currentX - (maxX - tooltipHalfWidth - edgePadding);
-        translateX = -50 - (overflow / (tooltipHalfWidth * 2)) * 100;
-        translateX = Math.min(translateX, -100);
-      }
       
       return (
         <div 
           className="flex items-center gap-1.5 pointer-events-none whitespace-nowrap"
-          style={{ 
-            transform: `translateX(${translateX}%)`,
-            marginLeft: translateX === -50 ? '50%' : undefined 
-          }}
+          style={{ transform: 'translateX(-50%)' }}
         >
           <span className="text-sm" style={{ color: COLORS.muted }}>
             {format(data.date, 'd MMM')}
