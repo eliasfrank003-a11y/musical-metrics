@@ -28,7 +28,7 @@ const COLORS = {
 
 export function IntradayChart({ data, baselineAverage, onHover }: IntradayChartProps) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
-  const [scrubPercentage, setScrubPercentage] = useState<number>(100);
+  const [scrubPercentage, setScrubPercentage] = useState<number | null>(null);
 
   const chartData = useMemo(() => {
     return data.map((d, index) => ({
@@ -66,6 +66,18 @@ export function IntradayChart({ data, baselineAverage, onHover }: IntradayChartP
     
     return { dayStart: start.getTime(), dayEnd: end.getTime(), xAxisTicks: ticks };
   }, [chartData]);
+
+  // Calculate the default scrub percentage (line ends at last data point)
+  const defaultScrubPercentage = useMemo(() => {
+    if (chartData.length === 0 || !dayStart || !dayEnd) return 0;
+    const lastPoint = chartData[chartData.length - 1];
+    const daySpan = dayEnd - dayStart;
+    const positionInDay = lastPoint.timestamp - dayStart;
+    return (positionInDay / daySpan) * 100;
+  }, [chartData, dayStart, dayEnd]);
+
+  // Use the active scrub percentage or default to the end of data
+  const effectiveScrubPercentage = scrubPercentage ?? defaultScrubPercentage;
 
   // Calculate Y-axis domain to always include baseline and show separation
   const { yMin, yMax, range } = useMemo(() => {
@@ -122,23 +134,33 @@ export function IntradayChart({ data, baselineAverage, onHover }: IntradayChartP
     if (state?.activeTooltipIndex !== undefined) {
       const index = state.activeTooltipIndex;
       setActiveIndex(index);
-      const percentage = chartData.length > 1 
-        ? (index / (chartData.length - 1)) * 100 
-        : 100;
-      setScrubPercentage(percentage);
+      // Calculate percentage based on actual timestamp position in the full 24-hour day
+      const activePoint = chartData[index];
+      if (activePoint && dayStart && dayEnd) {
+        const daySpan = dayEnd - dayStart;
+        const positionInDay = activePoint.timestamp - dayStart;
+        const percentage = (positionInDay / daySpan) * 100;
+        setScrubPercentage(percentage);
+      }
     }
     if (state?.activePayload?.[0]?.payload && onHover) {
       onHover(state.activePayload[0].payload as IntradayData);
     }
-  }, [onHover, chartData.length]);
+  }, [onHover, chartData, dayStart, dayEnd]);
 
   const handleMouseLeave = useCallback(() => {
     setActiveIndex(null);
-    setScrubPercentage(100);
+    // Reset to show line up to the last data point
+    if (chartData.length > 0 && dayStart && dayEnd) {
+      const lastPoint = chartData[chartData.length - 1];
+      const daySpan = dayEnd - dayStart;
+      const positionInDay = lastPoint.timestamp - dayStart;
+      setScrubPercentage((positionInDay / daySpan) * 100);
+    }
     if (onHover) {
       onHover(null);
     }
-  }, [onHover]);
+  }, [onHover, chartData, dayStart, dayEnd]);
 
   if (data.length === 0) {
     return (
@@ -233,8 +255,8 @@ export function IntradayChart({ data, baselineAverage, onHover }: IntradayChartP
         >
           <defs>
             <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset={`${scrubPercentage}%`} stopColor={lineColor} />
-              <stop offset={`${scrubPercentage}%`} stopColor={COLORS.unreached} />
+              <stop offset={`${effectiveScrubPercentage}%`} stopColor={lineColor} />
+              <stop offset={`${effectiveScrubPercentage}%`} stopColor={COLORS.unreached} />
               <stop offset="100%" stopColor={COLORS.unreached} />
             </linearGradient>
           </defs>
@@ -281,7 +303,7 @@ export function IntradayChart({ data, baselineAverage, onHover }: IntradayChartP
           <Line
             type="linear"
             dataKey="averageHours"
-            stroke={activeIndex !== null ? `url(#${gradientId})` : lineColor}
+            stroke={`url(#${gradientId})`}
             strokeWidth={2.5}
             dot={false}
             activeDot={renderActiveDot}
