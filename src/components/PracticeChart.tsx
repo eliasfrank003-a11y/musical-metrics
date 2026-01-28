@@ -255,7 +255,7 @@ export function PracticeChart({ data, timeRange, onHover }: PracticeChartProps) 
       <ResponsiveContainer width="100%" height="100%">
         <LineChart 
           data={chartData} 
-          margin={{ top: 40, right: 0, left: 0, bottom: 20 }}
+          margin={{ top: 40, right: 16, left: 16, bottom: 20 }}
           onMouseMove={handleMouseMove}
           onMouseLeave={handleMouseLeave}
         >
