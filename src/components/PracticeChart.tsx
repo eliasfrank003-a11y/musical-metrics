@@ -255,7 +255,7 @@ export function PracticeChart({ data, timeRange, onHover }: PracticeChartProps) 
       <ResponsiveContainer width="100%" height="100%">
         <LineChart 
           data={chartData} 
-          margin={{ top: 40, right: 16, left: 16, bottom: 20 }}
+          margin={{ top: 40, right: 24, left: 24, bottom: 20 }}
           onMouseMove={handleMouseMove}
           onMouseLeave={handleMouseLeave}
         >
@@ -282,6 +282,7 @@ export function PracticeChart({ data, timeRange, onHover }: PracticeChartProps) 
             dy={10}
             ticks={xAxisTicks}
             tickFormatter={formatXAxisTick}
+            interval={0}
           />
           <YAxis
             domain={['dataMin', 'dataMax']}
