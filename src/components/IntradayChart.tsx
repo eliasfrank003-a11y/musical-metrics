@@ -40,20 +40,31 @@ export function IntradayChart({ data, baselineAverage, onHover }: IntradayChartP
     }));
   }, [data]);
 
-  // Calculate time ticks - only show ticks up to current hour
-  const xAxisTicks = useMemo(() => {
-    if (chartData.length < 2) return undefined;
+  // Fixed 24-hour domain (00:00 to 23:59)
+  const { dayStart, dayEnd, xAxisTicks } = useMemo(() => {
+    if (chartData.length === 0) {
+      const now = new Date();
+      const start = new Date(now);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(now);
+      end.setHours(23, 59, 59, 999);
+      return { dayStart: start.getTime(), dayEnd: end.getTime(), xAxisTicks: [] };
+    }
     
-    const startTime = chartData[0].timestamp;
-    const endTime = chartData[chartData.length - 1].timestamp;
-    const currentHour = new Date().getHours();
+    const baseDate = new Date(chartData[0].time);
+    const start = new Date(baseDate);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(baseDate);
+    end.setHours(23, 59, 59, 999);
     
-    // Key hourly intervals, filtered to only include hours up to current time
-    return [0, 6, 12, 18, currentHour].map(hour => {
-      const baseTime = new Date(chartData[0].time);
-      baseTime.setHours(hour, 0, 0, 0);
-      return baseTime.getTime();
-    }).filter(t => t >= startTime && t <= endTime);
+    // Fixed tick marks for the full 24-hour period
+    const ticks = [0, 6, 12, 18, 23].map(hour => {
+      const tickTime = new Date(baseDate);
+      tickTime.setHours(hour, hour === 23 ? 59 : 0, 0, 0);
+      return tickTime.getTime();
+    });
+    
+    return { dayStart: start.getTime(), dayEnd: end.getTime(), xAxisTicks: ticks };
   }, [chartData]);
 
   // Calculate Y-axis domain to always include baseline and show separation
@@ -231,7 +242,7 @@ export function IntradayChart({ data, baselineAverage, onHover }: IntradayChartP
           <XAxis
             dataKey="timestamp"
             type="number"
-            domain={['dataMin', 'dataMax']}
+            domain={[dayStart, dayEnd]}
             scale="time"
             axisLine={false}
             tickLine={false}
