@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useState } from 'react';
+import { useMemo, useCallback } from 'react';
 import {
   LineChart,
   Line,
@@ -27,14 +27,6 @@ const COLORS = {
 };
 
 export function IntradayChart({ data, baselineAverage, onHover }: IntradayChartProps) {
-  const [activeIndex, setActiveIndex] = useState<number | null>(null);
-  const [scrubPercentage, setScrubPercentage] = useState<number | null>(null);
-
-  const clampPercent = (pct: number) => {
-    if (!Number.isFinite(pct)) return 0;
-    return Math.max(0, Math.min(100, pct));
-  };
-
   const chartData = useMemo(() => {
     return data.map((d, index) => ({
       ...d,
@@ -71,26 +63,6 @@ export function IntradayChart({ data, baselineAverage, onHover }: IntradayChartP
     
     return { dayStart: start.getTime(), dayEnd: end.getTime(), xAxisTicks: ticks };
   }, [chartData]);
-
-  // Calculate the default scrub percentage (line ends at last data point)
-  const defaultScrubPercentage = useMemo(() => {
-    if (chartData.length === 0) return 0;
-
-    const baseDate = new Date(chartData[0].time);
-    const now = new Date();
-    const isToday = baseDate.toDateString() === now.toDateString();
-
-    const daySpan = dayEnd - dayStart;
-    if (daySpan <= 0) return 0;
-
-    // Default: show the line progressing up to the current time (for today's view)
-    const endTimestamp = isToday ? Math.min(now.getTime(), dayEnd) : dayEnd;
-    const pct = ((endTimestamp - dayStart) / daySpan) * 100;
-    return clampPercent(pct);
-  }, [chartData, dayStart, dayEnd]);
-
-  // Use the active scrub percentage or default to the end of data
-  const effectiveScrubPercentage = scrubPercentage ?? defaultScrubPercentage;
 
   // Calculate Y-axis domain to always include baseline and show separation
   const { yMin, yMax, range } = useMemo(() => {
@@ -144,33 +116,16 @@ export function IntradayChart({ data, baselineAverage, onHover }: IntradayChartP
   };
 
   const handleMouseMove = useCallback((state: any) => {
-    if (state?.activeTooltipIndex !== undefined) {
-      const index = state.activeTooltipIndex;
-      setActiveIndex(index);
-      // Calculate percentage based on actual timestamp position in the full 24-hour day
-      const activePoint = chartData[index];
-      if (activePoint && dayStart && dayEnd) {
-        const daySpan = dayEnd - dayStart;
-        const positionInDay = activePoint.timestamp - dayStart;
-        const percentage = (positionInDay / daySpan) * 100;
-        setScrubPercentage(clampPercent(percentage));
-      }
-    }
     if (state?.activePayload?.[0]?.payload && onHover) {
       onHover(state.activePayload[0].payload as IntradayData);
     }
-  }, [onHover, chartData, dayStart, dayEnd]);
+  }, [onHover]);
 
   const handleMouseLeave = useCallback(() => {
-    setActiveIndex(null);
-    // Reset back to the default ("progress up to now") view
-    setScrubPercentage(null);
     if (onHover) {
       onHover(null);
     }
-  }, [onHover, chartData, dayStart, dayEnd]);
-
-  const gradientId = useMemo(() => `intradayGradient-${Math.random().toString(36).substr(2, 9)}`, []);
+  }, [onHover]);
 
   if (data.length === 0) {
     return (
@@ -261,14 +216,6 @@ export function IntradayChart({ data, baselineAverage, onHover }: IntradayChartP
           onMouseMove={handleMouseMove}
           onMouseLeave={handleMouseLeave}
         >
-          <defs>
-            <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset={`${effectiveScrubPercentage}%`} stopColor={lineColor} />
-              <stop offset={`${effectiveScrubPercentage}%`} stopColor={COLORS.unreached} />
-              <stop offset="100%" stopColor={COLORS.unreached} />
-            </linearGradient>
-          </defs>
-          
           <XAxis
             dataKey="timestamp"
             type="number"
@@ -303,7 +250,7 @@ export function IntradayChart({ data, baselineAverage, onHover }: IntradayChartP
           />
           <Tooltip
             cursor={false}
-            content={<CustomTooltip />}
+            content={(props) => <CustomTooltip {...props} />}
             position={{ y: 0 }}
             wrapperStyle={{ zIndex: 100 }}
           />
@@ -311,7 +258,7 @@ export function IntradayChart({ data, baselineAverage, onHover }: IntradayChartP
           <Line
             type="linear"
             dataKey="averageHours"
-            stroke={`url(#${gradientId})`}
+            stroke={lineColor}
             strokeWidth={2.5}
             dot={false}
             activeDot={renderActiveDot}
