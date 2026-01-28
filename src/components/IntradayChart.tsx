@@ -162,6 +162,8 @@ export function IntradayChart({ data, baselineAverage, onHover }: IntradayChartP
     }
   }, [onHover, chartData, dayStart, dayEnd]);
 
+  const gradientId = useMemo(() => `intradayGradient-${Math.random().toString(36).substr(2, 9)}`, []);
+
   if (data.length === 0) {
     return (
       <div className="flex items-center justify-center h-64 text-muted-foreground">
@@ -241,8 +243,6 @@ export function IntradayChart({ data, baselineAverage, onHover }: IntradayChartP
     }
     return null;
   };
-
-  const gradientId = `intradayGradient-${Math.random().toString(36).substr(2, 9)}`;
 
   return (
     <div className="w-full h-72 md:h-80 relative">
