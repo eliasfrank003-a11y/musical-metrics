@@ -30,6 +30,11 @@ export function IntradayChart({ data, baselineAverage, onHover }: IntradayChartP
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [scrubPercentage, setScrubPercentage] = useState<number | null>(null);
 
+  const clampPercent = (pct: number) => {
+    if (!Number.isFinite(pct)) return 0;
+    return Math.max(0, Math.min(100, pct));
+  };
+
   const chartData = useMemo(() => {
     return data.map((d, index) => ({
       ...d,
@@ -69,11 +74,19 @@ export function IntradayChart({ data, baselineAverage, onHover }: IntradayChartP
 
   // Calculate the default scrub percentage (line ends at last data point)
   const defaultScrubPercentage = useMemo(() => {
-    if (chartData.length === 0 || !dayStart || !dayEnd) return 0;
-    const lastPoint = chartData[chartData.length - 1];
+    if (chartData.length === 0) return 0;
+
+    const baseDate = new Date(chartData[0].time);
+    const now = new Date();
+    const isToday = baseDate.toDateString() === now.toDateString();
+
     const daySpan = dayEnd - dayStart;
-    const positionInDay = lastPoint.timestamp - dayStart;
-    return (positionInDay / daySpan) * 100;
+    if (daySpan <= 0) return 0;
+
+    // Default: show the line progressing up to the current time (for today's view)
+    const endTimestamp = isToday ? Math.min(now.getTime(), dayEnd) : dayEnd;
+    const pct = ((endTimestamp - dayStart) / daySpan) * 100;
+    return clampPercent(pct);
   }, [chartData, dayStart, dayEnd]);
 
   // Use the active scrub percentage or default to the end of data
@@ -140,7 +153,7 @@ export function IntradayChart({ data, baselineAverage, onHover }: IntradayChartP
         const daySpan = dayEnd - dayStart;
         const positionInDay = activePoint.timestamp - dayStart;
         const percentage = (positionInDay / daySpan) * 100;
-        setScrubPercentage(percentage);
+        setScrubPercentage(clampPercent(percentage));
       }
     }
     if (state?.activePayload?.[0]?.payload && onHover) {
@@ -150,13 +163,8 @@ export function IntradayChart({ data, baselineAverage, onHover }: IntradayChartP
 
   const handleMouseLeave = useCallback(() => {
     setActiveIndex(null);
-    // Reset to show line up to the last data point
-    if (chartData.length > 0 && dayStart && dayEnd) {
-      const lastPoint = chartData[chartData.length - 1];
-      const daySpan = dayEnd - dayStart;
-      const positionInDay = lastPoint.timestamp - dayStart;
-      setScrubPercentage((positionInDay / daySpan) * 100);
-    }
+    // Reset back to the default ("progress up to now") view
+    setScrubPercentage(null);
     if (onHover) {
       onHover(null);
     }
