@@ -28,13 +28,16 @@ const COLORS = {
 
 export function IntradayChart({ data, baselineAverage, onHover }: IntradayChartProps) {
   const chartData = useMemo(() => {
-    return data.map((d, index) => ({
-      ...d,
-      index,
-      timestamp: d.time.getTime(),
-      displayTime: d.timeStr,
-      averageHours: d.cumulativeAverage,
-    }));
+    // Filter out data before 6am
+    return data
+      .filter(d => d.time.getHours() >= 6)
+      .map((d, index) => ({
+        ...d,
+        index,
+        timestamp: d.time.getTime(),
+        displayTime: d.timeStr,
+        averageHours: d.cumulativeAverage,
+      }));
   }, [data]);
 
   // Domain from 6am to 23:59, with ticks at 6, 10, 14, 18, 22
