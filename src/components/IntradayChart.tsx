@@ -37,12 +37,12 @@ export function IntradayChart({ data, baselineAverage, onHover }: IntradayChartP
     }));
   }, [data]);
 
-  // Fixed 24-hour domain (00:00 to 23:59)
+  // Domain from 6am to 23:59, with ticks at 6, 10, 14, 18, 22
   const { dayStart, dayEnd, xAxisTicks } = useMemo(() => {
     if (chartData.length === 0) {
       const now = new Date();
       const start = new Date(now);
-      start.setHours(0, 0, 0, 0);
+      start.setHours(6, 0, 0, 0);
       const end = new Date(now);
       end.setHours(23, 59, 59, 999);
       return { dayStart: start.getTime(), dayEnd: end.getTime(), xAxisTicks: [] };
@@ -50,14 +50,14 @@ export function IntradayChart({ data, baselineAverage, onHover }: IntradayChartP
     
     const baseDate = new Date(chartData[0].time);
     const start = new Date(baseDate);
-    start.setHours(0, 0, 0, 0);
+    start.setHours(6, 0, 0, 0);
     const end = new Date(baseDate);
     end.setHours(23, 59, 59, 999);
     
-    // Fixed tick marks for the full 24-hour period
-    const ticks = [0, 6, 12, 18, 23].map(hour => {
+    // 5 evenly spaced ticks from 6am to 10pm (4-hour intervals)
+    const ticks = [6, 10, 14, 18, 22].map(hour => {
       const tickTime = new Date(baseDate);
-      tickTime.setHours(hour, hour === 23 ? 59 : 0, 0, 0);
+      tickTime.setHours(hour, 0, 0, 0);
       return tickTime.getTime();
     });
     
