@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { StatusDot, getNextStatus } from './StatusDot';
-import { Trash2, Edit2, Check, X } from 'lucide-react';
+import { Trash2, Edit2, Check, X, GripVertical } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -23,6 +23,10 @@ interface RepertoireItemProps {
   onDelete: (id: number) => void;
   isUpdating?: boolean;
   isEditMode?: boolean;
+  onDragStart?: (e: React.DragEvent, id: number) => void;
+  onDragOver?: (e: React.DragEvent) => void;
+  onDrop?: (e: React.DragEvent, id: number) => void;
+  isDragging?: boolean;
 }
 
 const COLORS = {
@@ -38,6 +42,10 @@ export function RepertoireItem({
   onDelete,
   isUpdating,
   isEditMode = false,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  isDragging,
 }: RepertoireItemProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(item.title);
@@ -64,7 +72,21 @@ export function RepertoireItem({
     const hasText = item.title.trim().length > 0;
     
     return (
-      <div className="py-3 px-4 flex items-center gap-3">
+      <div 
+        className={cn(
+          "py-3 px-4 flex items-center gap-3",
+          isDragging && "opacity-50"
+        )}
+        draggable={isEditMode}
+        onDragStart={(e) => onDragStart?.(e, item.id)}
+        onDragOver={onDragOver}
+        onDrop={(e) => onDrop?.(e, item.id)}
+      >
+        {isEditMode && !isEditing && (
+          <div className="cursor-grab active:cursor-grabbing text-muted-foreground">
+            <GripVertical className="h-4 w-4" />
+          </div>
+        )}
         <div 
           className="flex-1 h-px"
           style={{ backgroundColor: COLORS.divider }}
@@ -126,9 +148,19 @@ export function RepertoireItem({
     <div 
       className={cn(
         "flex items-center gap-3 py-3 px-4 rounded-lg transition-colors",
-        "hover:bg-card/50"
+        "hover:bg-card/50",
+        isDragging && "opacity-50"
       )}
+      draggable={isEditMode}
+      onDragStart={(e) => onDragStart?.(e, item.id)}
+      onDragOver={onDragOver}
+      onDrop={(e) => onDrop?.(e, item.id)}
     >
+      {isEditMode && !isEditing && (
+        <div className="cursor-grab active:cursor-grabbing text-muted-foreground">
+          <GripVertical className="h-4 w-4" />
+        </div>
+      )}
       <StatusDot 
         status={item.status} 
         onClick={handleStatusClick}

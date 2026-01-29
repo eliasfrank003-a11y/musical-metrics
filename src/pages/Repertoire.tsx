@@ -10,6 +10,7 @@ export function Repertoire() {
     updateItem,
     deleteItem,
     addItem,
+    reorderItems,
   } = useRepertoire();
 
   return (
@@ -20,6 +21,7 @@ export function Repertoire() {
         onEdit={updateItem}
         onDelete={deleteItem}
         onAdd={addItem}
+        onReorder={reorderItems}
         isLoading={isLoading}
       />
     </div>
