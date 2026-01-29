@@ -154,6 +154,47 @@ export function useRepertoire() {
     }
   }, [items, toast]);
 
+  const reorderItems = useCallback(async (draggedId: number, targetId: number) => {
+    // Find indices
+    const draggedIndex = items.findIndex(i => i.id === draggedId);
+    const targetIndex = items.findIndex(i => i.id === targetId);
+    
+    if (draggedIndex === -1 || targetIndex === -1 || draggedIndex === targetIndex) return;
+    
+    // Reorder locally first (optimistic update)
+    const newItems = [...items];
+    const [draggedItem] = newItems.splice(draggedIndex, 1);
+    newItems.splice(targetIndex, 0, draggedItem);
+    
+    // Update sort_order based on new positions (reverse index since we sort by created_at desc)
+    const updates = newItems.map((item, index) => ({
+      id: item.id,
+      sort_order: newItems.length - index,
+    }));
+    
+    setItems(newItems);
+    
+    try {
+      // Update all sort_orders in database
+      for (const update of updates) {
+        const { error } = await supabase
+          .from('repertoire_items')
+          .update({ sort_order: update.sort_order })
+          .eq('id', update.id);
+        
+        if (error) throw error;
+      }
+    } catch (error) {
+      console.error('[Repertoire] Error reordering:', error);
+      toast({
+        title: 'Error reordering items',
+        variant: 'destructive',
+      });
+      // Refetch to restore correct order
+      fetchItems();
+    }
+  }, [items, toast, fetchItems]);
+
   useEffect(() => {
     fetchItems();
   }, [fetchItems]);
@@ -166,6 +207,7 @@ export function useRepertoire() {
     updateItem,
     deleteItem,
     addItem,
+    reorderItems,
     refetch: fetchItems,
   };
 }

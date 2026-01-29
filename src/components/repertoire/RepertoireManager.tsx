@@ -17,6 +17,7 @@ interface RepertoireManagerProps {
   onEdit: (id: number, title: string, composer: string | null) => void;
   onDelete: (id: number) => void;
   onAdd: (type: 'piece' | 'divider', title: string, composer?: string) => void;
+  onReorder: (draggedId: number, targetId: number) => void;
   isLoading?: boolean;
 }
 
@@ -31,6 +32,7 @@ export function RepertoireManager({
   onEdit,
   onDelete,
   onAdd,
+  onReorder,
   isLoading,
 }: RepertoireManagerProps) {
   const [showRedOnly, setShowRedOnly] = useState(false);
@@ -39,6 +41,29 @@ export function RepertoireManager({
   const [isAddingDivider, setIsAddingDivider] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newComposer, setNewComposer] = useState('');
+  const [draggedId, setDraggedId] = useState<number | null>(null);
+
+  const handleDragStart = (e: React.DragEvent, id: number) => {
+    setDraggedId(id);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = (e: React.DragEvent, targetId: number) => {
+    e.preventDefault();
+    if (draggedId !== null && draggedId !== targetId) {
+      onReorder(draggedId, targetId);
+    }
+    setDraggedId(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedId(null);
+  };
 
   const filteredItems = useMemo(() => {
     if (!showRedOnly) return items;
@@ -183,7 +208,7 @@ export function RepertoireManager({
             )}
           </div>
         ) : (
-          <div className="py-2 max-w-md mx-auto w-full">
+          <div className="py-2 max-w-md mx-auto w-full" onDragEnd={handleDragEnd}>
             {filteredItems.map((item) => (
               <RepertoireItem
                 key={item.id}
@@ -192,6 +217,10 @@ export function RepertoireManager({
                 onEdit={onEdit}
                 onDelete={onDelete}
                 isEditMode={isEditMode}
+                onDragStart={handleDragStart}
+                onDragOver={handleDragOver}
+                onDrop={handleDrop}
+                isDragging={draggedId === item.id}
               />
             ))}
           </div>
