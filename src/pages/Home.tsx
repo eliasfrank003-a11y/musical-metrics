@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { SwipeableLayout } from '@/components/SwipeableLayout';
 import { DailyAverageSection } from '@/components/DailyAverageSection';
 import { TenKOverview } from '@/components/TenKOverview';
@@ -12,6 +12,7 @@ const REPERTOIRE_SEED_DATA: { type: 'piece' | 'divider'; title: string; composer
 
 export function Home() {
   const [analytics, setAnalytics] = useState<AnalyticsResult | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // Initialize seeding (runs once if tables are empty)
   useDataSeeding({
@@ -19,11 +20,24 @@ export function Home() {
     repertoireSeedData: REPERTOIRE_SEED_DATA,
   });
 
+  const handleSync = useCallback(async () => {
+    // Trigger a refresh of the DailyAverageSection by updating the key
+    setRefreshKey(prev => prev + 1);
+  }, []);
+
+  // Time view content
+  const timeView = (
+    <>
+      <DailyAverageSection key={refreshKey} onAnalyticsUpdate={setAnalytics} />
+      <TenKOverview analytics={analytics} />
+    </>
+  );
+
   return (
     <SwipeableLayout
-      fixedTop={<DailyAverageSection onAnalyticsUpdate={setAnalytics} />}
-      leftView={<TenKOverview analytics={analytics} />}
+      leftView={timeView}
       rightView={<Repertoire />}
+      onSync={handleSync}
     />
   );
 }

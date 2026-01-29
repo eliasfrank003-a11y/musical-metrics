@@ -192,26 +192,7 @@ export function DailyAverageSection({ onAnalyticsUpdate }: DailyAverageSectionPr
   }
 
   return (
-    <div className="px-4 py-6">
-      {/* Header */}
-      <div className="flex justify-end items-center gap-2 mb-4">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleManualSync}
-          disabled={isSyncing}
-          className="disabled:opacity-100"
-          style={{ color: isSyncing ? '#FFFFFF' : '#595A5F' }}
-        >
-          <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
-        </Button>
-        <Link to="/settings">
-          <Button variant="ghost" size="sm" className="font-mono" style={{ color: '#595A5F' }}>
-            {APP_VERSION}
-          </Button>
-        </Link>
-      </div>
-
+    <div className="px-4 pt-2 pb-6">
       {/* Metric Display */}
       <MetricDisplay
         currentAverage={analytics.currentAverage}

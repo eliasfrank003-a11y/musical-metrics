@@ -1,18 +1,27 @@
 import { useState, useRef, ReactNode } from 'react';
 import { cn } from '@/lib/utils';
+import { RefreshCw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Link } from 'react-router-dom';
+import { useCalendarSync } from '@/hooks/useCalendarSync';
+import { useToast } from '@/hooks/use-toast';
+
+const APP_VERSION = 'v6';
 
 interface SwipeableLayoutProps {
-  fixedTop: ReactNode;
   leftView: ReactNode;
   rightView: ReactNode;
+  onSync?: () => Promise<void>;
 }
 
-export function SwipeableLayout({ fixedTop, leftView, rightView }: SwipeableLayoutProps) {
+export function SwipeableLayout({ leftView, rightView, onSync }: SwipeableLayoutProps) {
   const [currentView, setCurrentView] = useState<'left' | 'right'>('left');
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchDelta, setTouchDelta] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const { syncCalendar, isSyncing } = useCalendarSync();
+  const { toast } = useToast();
 
   const SWIPE_THRESHOLD = 50;
 
@@ -45,29 +54,74 @@ export function SwipeableLayout({ fixedTop, leftView, rightView }: SwipeableLayo
     return base;
   };
 
+  const handleManualSync = async () => {
+    try {
+      const hasNewData = await syncCalendar(false);
+      if (hasNewData) {
+        await onSync?.();
+        toast({
+          title: 'Synced',
+          description: 'New sessions added',
+          duration: 2000,
+        });
+      } else {
+        toast({
+          title: 'Already up to date',
+          duration: 2000,
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Sync failed',
+        variant: 'destructive',
+      });
+    }
+  };
+
   return (
     <div className="h-screen overflow-y-auto bg-background">
-      {/* Top Section - Daily Average (scrolls with page) */}
-      <div className="flex-shrink-0">
-        {fixedTop}
-      </div>
+      {/* Top Header with Tabs and Controls */}
+      <div className="flex items-center justify-between px-4 pt-6 pb-3">
+        {/* Tab Selectors - Trade Republic style */}
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={() => setCurrentView('left')} 
+            className={cn(
+              "text-xl font-semibold transition-colors",
+              currentView === 'left' ? "text-foreground" : "text-muted-foreground"
+            )} 
+          >
+            Time
+          </button>
+          <button 
+            onClick={() => setCurrentView('right')} 
+            className={cn(
+              "text-xl font-semibold transition-colors",
+              currentView === 'right' ? "text-foreground" : "text-muted-foreground"
+            )} 
+          >
+            Repertoire
+          </button>
+        </div>
 
-      {/* Dot Indicators */}
-      <div className="flex justify-center gap-2 py-3 sticky top-0 z-10 bg-background">
-        <button 
-          onClick={() => setCurrentView('left')} 
-          className={cn(
-            "w-2 h-2 rounded-full transition-colors",
-            currentView === 'left' ? "bg-foreground" : "bg-muted-foreground/30"
-          )} 
-        />
-        <button 
-          onClick={() => setCurrentView('right')} 
-          className={cn(
-            "w-2 h-2 rounded-full transition-colors",
-            currentView === 'right' ? "bg-foreground" : "bg-muted-foreground/30"
-          )} 
-        />
+        {/* Right side controls */}
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleManualSync}
+            disabled={isSyncing}
+            className="disabled:opacity-100"
+            style={{ color: isSyncing ? '#FFFFFF' : '#595A5F' }}
+          >
+            <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
+          </Button>
+          <Link to="/settings">
+            <Button variant="ghost" size="sm" className="font-mono" style={{ color: '#595A5F' }}>
+              {APP_VERSION}
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Swipeable Content Section */}
