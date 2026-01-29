@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { RepertoireItem, RepertoireItemData } from './RepertoireItem';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Filter } from 'lucide-react';
+import { Plus, Filter, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   DropdownMenu,
@@ -34,6 +34,7 @@ export function RepertoireManager({
   isLoading,
 }: RepertoireManagerProps) {
   const [showRedOnly, setShowRedOnly] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
   const [isAddingPiece, setIsAddingPiece] = useState(false);
   const [isAddingDivider, setIsAddingDivider] = useState(false);
   const [newTitle, setNewTitle] = useState('');
@@ -54,7 +55,7 @@ export function RepertoireManager({
   };
 
   const handleAddDivider = () => {
-    if (!newTitle.trim()) return;
+    // Allow empty dividers
     onAdd('divider', newTitle.trim());
     setNewTitle('');
     setIsAddingDivider(false);
@@ -62,11 +63,22 @@ export function RepertoireManager({
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border/30">
-        <h2 className="text-lg font-semibold">Repertoire</h2>
-        
+      {/* Header - no title, just controls */}
+      <div className="flex items-center justify-end px-4 py-3 border-b border-border/30">
         <div className="flex items-center gap-2">
+          {/* Edit Mode Toggle */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setIsEditMode(!isEditMode)}
+            className={cn(
+              "gap-1.5",
+              isEditMode && "text-primary"
+            )}
+          >
+            <Pencil className="h-4 w-4" />
+          </Button>
+
           {/* Red List Filter Toggle */}
           <Button
             variant="ghost"
@@ -102,7 +114,7 @@ export function RepertoireManager({
 
       {/* Add New Piece Form */}
       {isAddingPiece && (
-        <div className="px-4 py-3 border-b border-border/30 space-y-2">
+        <div className="px-4 py-3 border-b border-border/30 space-y-2 max-w-md mx-auto w-full">
           <Input
             placeholder="Title"
             value={newTitle}
@@ -127,15 +139,15 @@ export function RepertoireManager({
 
       {/* Add New Divider Form */}
       {isAddingDivider && (
-        <div className="px-4 py-3 border-b border-border/30 space-y-2">
+        <div className="px-4 py-3 border-b border-border/30 space-y-2 max-w-md mx-auto w-full">
           <Input
-            placeholder="Divider text (e.g., --- Etudes ---)"
+            placeholder="Divider text (optional)"
             value={newTitle}
             onChange={(e) => setNewTitle(e.target.value)}
             autoFocus
           />
           <div className="flex gap-2">
-            <Button size="sm" onClick={handleAddDivider} disabled={!newTitle.trim()}>
+            <Button size="sm" onClick={handleAddDivider}>
               Add Divider
             </Button>
             <Button size="sm" variant="ghost" onClick={() => setIsAddingDivider(false)}>
@@ -145,7 +157,7 @@ export function RepertoireManager({
         </div>
       )}
 
-      {/* List */}
+      {/* List - centered */}
       <div className="flex-1 overflow-y-auto">
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
@@ -171,7 +183,7 @@ export function RepertoireManager({
             )}
           </div>
         ) : (
-          <div className="py-2">
+          <div className="py-2 max-w-md mx-auto w-full">
             {filteredItems.map((item) => (
               <RepertoireItem
                 key={item.id}
@@ -179,6 +191,7 @@ export function RepertoireManager({
                 onStatusChange={onStatusChange}
                 onEdit={onEdit}
                 onDelete={onDelete}
+                isEditMode={isEditMode}
               />
             ))}
           </div>

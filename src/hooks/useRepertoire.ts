@@ -22,8 +22,7 @@ export function useRepertoire() {
       const { data, error } = await supabase
         .from('repertoire_items')
         .select('*')
-        .order('sort_order', { ascending: true });
-
+        .order('created_at', { ascending: false });
       if (error) throw error;
       
       // Type assertion since DB returns text, but we know the constraints

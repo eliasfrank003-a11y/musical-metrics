@@ -22,6 +22,7 @@ interface RepertoireItemProps {
   onEdit: (id: number, title: string, composer: string | null) => void;
   onDelete: (id: number) => void;
   isUpdating?: boolean;
+  isEditMode?: boolean;
 }
 
 const COLORS = {
@@ -36,6 +37,7 @@ export function RepertoireItem({
   onEdit,
   onDelete,
   isUpdating,
+  isEditMode = false,
 }: RepertoireItemProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(item.title);
@@ -59,6 +61,8 @@ export function RepertoireItem({
 
   // Divider rendering
   if (item.type === 'divider') {
+    const hasText = item.title.trim().length > 0;
+    
     return (
       <div className="py-3 px-4 flex items-center gap-3">
         <div 
@@ -71,6 +75,7 @@ export function RepertoireItem({
               value={editTitle}
               onChange={(e) => setEditTitle(e.target.value)}
               className="h-7 text-xs w-32"
+              placeholder="Optional text"
               autoFocus
             />
             <Button size="icon" variant="ghost" className="h-6 w-6" onClick={handleSaveEdit}>
@@ -80,20 +85,20 @@ export function RepertoireItem({
               <X className="h-3 w-3" />
             </Button>
           </div>
-        ) : (
+        ) : hasText ? (
           <span 
             className="text-xs font-medium px-2"
             style={{ color: COLORS.muted }}
           >
             {item.title}
           </span>
-        )}
+        ) : null}
         <div 
           className="flex-1 h-px"
           style={{ backgroundColor: COLORS.divider }}
         />
-        {!isEditing && (
-          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        {isEditMode && !isEditing && (
+          <div className="flex items-center gap-1">
             <Button 
               size="icon" 
               variant="ghost" 
@@ -120,7 +125,7 @@ export function RepertoireItem({
   return (
     <div 
       className={cn(
-        "group flex items-center gap-3 py-3 px-4 rounded-lg transition-colors",
+        "flex items-center gap-3 py-3 px-4 rounded-lg transition-colors",
         "hover:bg-card/50"
       )}
     >
@@ -166,24 +171,26 @@ export function RepertoireItem({
             )}
           </div>
           
-          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            <Button 
-              size="icon" 
-              variant="ghost" 
-              className="h-7 w-7"
-              onClick={() => setIsEditing(true)}
-            >
-              <Edit2 className="h-3.5 w-3.5" />
-            </Button>
-            <Button 
-              size="icon" 
-              variant="ghost" 
-              className="h-7 w-7 hover:text-destructive"
-              onClick={() => onDelete(item.id)}
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
-          </div>
+          {isEditMode && (
+            <div className="flex items-center gap-1">
+              <Button 
+                size="icon" 
+                variant="ghost" 
+                className="h-7 w-7"
+                onClick={() => setIsEditing(true)}
+              >
+                <Edit2 className="h-3.5 w-3.5" />
+              </Button>
+              <Button 
+                size="icon" 
+                variant="ghost" 
+                className="h-7 w-7 hover:text-destructive"
+                onClick={() => onDelete(item.id)}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          )}
         </>
       )}
     </div>
