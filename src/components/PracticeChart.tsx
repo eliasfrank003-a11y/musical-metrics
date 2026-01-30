@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useState } from 'react';
+import { useMemo, useCallback, useState, useRef } from 'react';
 import {
   LineChart,
   Line,
@@ -30,6 +30,11 @@ export function PracticeChart({ data, timeRange, onHover }: PracticeChartProps) 
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [scrubPercentage, setScrubPercentage] = useState<number>(100);
   const [isScrubbing, setIsScrubbing] = useState(false);
+  const chartWrapperRef = useRef<HTMLDivElement>(null);
+  const isCoarsePointer = useMemo(
+    () => typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches,
+    []
+  );
 
   const chartData = useMemo(() => {
     return data.map((d, index) => ({
@@ -111,25 +116,42 @@ export function PracticeChart({ data, timeRange, onHover }: PracticeChartProps) 
     }
   }, [onHover]);
 
-  const handleTouchStart = useCallback((state: any, event?: any) => {
-    if (event?.preventDefault) event.preventDefault();
-    if (event?.stopPropagation) event.stopPropagation();
+  const updateFromClientX = useCallback((clientX: number) => {
+    if (!chartWrapperRef.current || chartData.length === 0) return;
+    const rect = chartWrapperRef.current.getBoundingClientRect();
+    const x = Math.min(Math.max(clientX - rect.left, 0), rect.width);
+    const ratio = rect.width > 0 ? x / rect.width : 0;
+    const index = Math.round(ratio * (chartData.length - 1));
+    const clampedIndex = Math.min(Math.max(index, 0), chartData.length - 1);
+
+    setActiveIndex(clampedIndex);
+    setScrubPercentage(chartData.length > 1 ? (clampedIndex / (chartData.length - 1)) * 100 : 100);
+    if (onHover) {
+      onHover(chartData[clampedIndex] as DailyData);
+    }
+  }, [chartData, onHover]);
+
+  const handleScrubStart = useCallback((clientX: number, event?: React.SyntheticEvent) => {
+    event?.preventDefault();
+    event?.stopPropagation();
     setIsScrubbing(true);
-    handleMouseMove(state);
-  }, [handleMouseMove]);
+    updateFromClientX(clientX);
+  }, [updateFromClientX]);
 
-  const handleTouchMove = useCallback((state: any, event?: any) => {
+  const handleScrubMove = useCallback((clientX: number, event?: React.SyntheticEvent) => {
     if (!isScrubbing) return;
-    if (event?.preventDefault) event.preventDefault();
-    if (event?.stopPropagation) event.stopPropagation();
-    handleMouseMove(state);
-  }, [isScrubbing, handleMouseMove]);
+    event?.preventDefault();
+    event?.stopPropagation();
+    updateFromClientX(clientX);
+  }, [isScrubbing, updateFromClientX]);
 
-  const handleTouchEnd = useCallback((_: any, event?: any) => {
-    if (event?.preventDefault) event.preventDefault();
-    if (event?.stopPropagation) event.stopPropagation();
+  const handleScrubEnd = useCallback((event?: React.SyntheticEvent) => {
+    event?.preventDefault();
+    event?.stopPropagation();
     setIsScrubbing(false);
-  }, []);
+    handleMouseLeave();
+  }, [handleMouseLeave]);
+
 
   if (data.length === 0) {
     return (
@@ -264,19 +286,29 @@ export function PracticeChart({ data, timeRange, onHover }: PracticeChartProps) 
 
   return (
     <div
+      ref={chartWrapperRef}
       className="w-full h-72 md:h-80 relative overscroll-none"
       style={{ touchAction: isScrubbing ? 'none' : 'pan-y' }}
     >
+      <div
+        className="absolute left-0 right-0 top-[-16px] bottom-[-24px] z-20"
+        style={{ pointerEvents: isCoarsePointer || isScrubbing ? 'auto' : 'none' }}
+        onPointerDown={(event) => handleScrubStart(event.clientX, event)}
+        onPointerMove={(event) => handleScrubMove(event.clientX, event)}
+        onPointerUp={(event) => handleScrubEnd(event)}
+        onPointerCancel={(event) => handleScrubEnd(event)}
+        onPointerLeave={(event) => handleScrubEnd(event)}
+        onTouchStartCapture={(event) => handleScrubStart(event.touches[0].clientX, event)}
+        onTouchMoveCapture={(event) => handleScrubMove(event.touches[0].clientX, event)}
+        onTouchEndCapture={(event) => handleScrubEnd(event)}
+        onTouchCancelCapture={(event) => handleScrubEnd(event)}
+      />
       <ResponsiveContainer width="100%" height="100%">
         <LineChart 
           data={chartData} 
           margin={{ top: 40, right: 24, left: 24, bottom: 20 }}
           onMouseMove={handleMouseMove}
           onMouseLeave={handleMouseLeave}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-          onTouchCancel={handleTouchEnd}
         >
           <defs>
             {/* Scrub gradient to dim line after selected point */}
@@ -333,8 +365,8 @@ export function PracticeChart({ data, timeRange, onHover }: PracticeChartProps) 
             dataKey="averageHours"
             stroke={activeIndex !== null ? `url(#${scrubGradientId})` : lineColor}
             strokeWidth={2.5}
-            dot={false}
-            activeDot={renderActiveDot}
+            dot={(props: any) => (props.index === activeIndex ? renderActiveDot(props) : null)}
+            activeDot={false}
             isAnimationActive={false}
           />
         </LineChart>
