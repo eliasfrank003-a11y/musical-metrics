@@ -8,16 +8,5 @@
   "background_color": "#000000",
   "theme_color": "#09C651",
   "orientation": "portrait-primary",
-  "icons": [
-    {
-      "src": "https://storage.googleapis.com/gpt-engineer-file-uploads/u8x0zECKWJTKtM2ZfBwYV7g3MHY2/uploads/1769248545035-treble-clef-1279909_960_720.webp",
-      "sizes": "192x192",
-      "type": "image/webp"
-    },
-    {
-      "src": "https://storage.googleapis.com/gpt-engineer-file-uploads/u8x0zECKWJTKtM2ZfBwYV7g3MHY2/uploads/1769248545035-treble-clef-1279909_960_720.webp",
-      "sizes": "512x512",
-      "type": "image/webp"
-    }
-  ]
+  "icons": []
 }
