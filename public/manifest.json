@@ -4,9 +4,9 @@
   "description": "Practice tracking for musicians",
   "start_url": "/musical-metrics/",
   "scope": "/musical-metrics/",
-  "display": "standalone",
+  "display": "fullscreen",
   "background_color": "#000000",
-  "theme_color": "#09C651",
+  "theme_color": "#000000",
   "orientation": "portrait-primary",
   "icons": []
 }

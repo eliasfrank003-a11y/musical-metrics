@@ -111,9 +111,10 @@ export function RepertoireManager({
             size="sm"
             onClick={() => setShowRedOnly(!showRedOnly)}
             className={cn(
-              "gap-1.5 font-semibold text-sm",
+              "gap-1.5 font-semibold text-sm focus:ring-0 focus-visible:ring-0 focus:outline-none focus-visible:outline-none",
               showRedOnly ? "text-destructive" : "text-muted-foreground"
             )}
+            style={{ color: showRedOnly ? '#FD4136' : '#595A5F' }}
           >
             RED
           </Button>
@@ -123,10 +124,8 @@ export function RepertoireManager({
             variant="ghost"
             size="sm"
             onClick={() => setIsEditMode(!isEditMode)}
-            className={cn(
-              "gap-1.5",
-              isEditMode ? "text-destructive" : "text-muted-foreground"
-            )}
+            className="gap-1.5 focus:ring-0 focus-visible:ring-0 focus:outline-none focus-visible:outline-none"
+            style={{ color: isEditMode ? '#FD4136' : '#595A5F' }}
           >
             <Pencil className="h-4 w-4" />
           </Button>
@@ -134,7 +133,12 @@ export function RepertoireManager({
           {/* Add Menu */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-8 w-8 focus:ring-0 focus-visible:ring-0 focus:outline-none focus-visible:outline-none"
+                style={{ color: '#595A5F' }}
+              >
                 <Plus className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
