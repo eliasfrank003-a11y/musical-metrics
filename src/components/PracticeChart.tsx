@@ -118,11 +118,12 @@ export function PracticeChart({ data, timeRange, onHover }: PracticeChartProps) 
     );
   }
 
-  // Determine line color based on trend (last value vs first value)
+  // Determine line color based on last point (or selected point) vs baseline
   const lastValue = chartData[chartData.length - 1]?.averageHours || 0;
-  const firstValue = chartData[0]?.averageHours || 0;
-  const isPositiveTrend = lastValue >= firstValue;
-  const lineColor = isPositiveTrend ? COLORS.positive : COLORS.negative;
+  const selectedValue = activeIndex !== null ? chartData[activeIndex]?.averageHours : null;
+  const effectiveValue = selectedValue ?? lastValue;
+  const isAboveBaseline = effectiveValue >= baselineValue;
+  const lineColor = isAboveBaseline ? COLORS.positive : COLORS.negative;
 
   // Custom active dot with glow effect and pulse animation
   const renderActiveDot = (props: any) => {
@@ -132,37 +133,27 @@ export function PracticeChart({ data, timeRange, onHover }: PracticeChartProps) 
     
     return (
       <g>
-        {/* Outer pulse ring */}
+        {/* Soft outer halo */}
         <circle
           cx={cx}
           cy={cy}
-          r={24}
+          r={20}
           fill={dotColor}
-          opacity={0.1}
-          className="animate-pulse-ring"
+          opacity={0.08}
         />
-        {/* Middle glow */}
+        {/* Subtle glow */}
         <circle
           cx={cx}
           cy={cy}
-          r={16}
+          r={13}
           fill={dotColor}
-          opacity={0.2}
-          className="animate-pulse-ring-delay"
-        />
-        {/* Inner glow */}
-        <circle
-          cx={cx}
-          cy={cy}
-          r={10}
-          fill={dotColor}
-          opacity={0.4}
+          opacity={0.18}
         />
         {/* Solid inner dot */}
         <circle
           cx={cx}
           cy={cy}
-          r={6}
+          r={5}
           fill={dotColor}
           stroke="none"
         />
@@ -247,8 +238,8 @@ export function PracticeChart({ data, timeRange, onHover }: PracticeChartProps) 
     return null;
   };
 
-  // Generate a unique gradient ID to avoid conflicts
-  const gradientId = `scrubGradient-${Math.random().toString(36).substr(2, 9)}`;
+  // Generate unique gradient ID to avoid conflicts
+  const scrubGradientId = `scrubGradient-${Math.random().toString(36).substr(2, 9)}`;
 
   return (
     <div className="w-full h-72 md:h-80 relative">
@@ -260,14 +251,11 @@ export function PracticeChart({ data, timeRange, onHover }: PracticeChartProps) 
           onMouseLeave={handleMouseLeave}
         >
           <defs>
-            {/* Dynamic gradient for scrubbing effect */}
-            <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
-              {/* Left portion - active color up to scrub position */}
+            {/* Scrub gradient to dim line after selected point */}
+            <linearGradient id={scrubGradientId} x1="0%" y1="0%" x2="100%" y2="0%">
               <stop offset={`${scrubPercentage}%`} stopColor={lineColor} />
-              {/* Sharp transition at scrub position */}
-              <stop offset={`${scrubPercentage}%`} stopColor={COLORS.unreached} />
-              {/* Right portion - inactive gray */}
-              <stop offset="100%" stopColor={COLORS.unreached} />
+              <stop offset={`${scrubPercentage}%`} stopColor={COLORS.muted} stopOpacity={0.45} />
+              <stop offset="100%" stopColor={COLORS.muted} stopOpacity={0.45} />
             </linearGradient>
           </defs>
           
@@ -315,7 +303,7 @@ export function PracticeChart({ data, timeRange, onHover }: PracticeChartProps) 
           <Line
             type="linear"
             dataKey="averageHours"
-            stroke={activeIndex !== null ? `url(#${gradientId})` : lineColor}
+            stroke={activeIndex !== null ? `url(#${scrubGradientId})` : lineColor}
             strokeWidth={2.5}
             dot={false}
             activeDot={renderActiveDot}

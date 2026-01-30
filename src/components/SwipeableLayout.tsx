@@ -138,7 +138,13 @@ export function SwipeableLayout({ leftView, rightView, onSync }: SwipeableLayout
           )} 
           style={{ width: '200%', transform: `translateX(${getTranslateX()}%)` }}
         >
-          <div className="w-1/2">{leftView}</div>
+          <div className="w-1/2 relative overflow-hidden">
+            <div className="pointer-events-none absolute inset-0">
+              <span className="shooting-star" />
+              <span className="shooting-star shooting-star--delayed" />
+            </div>
+            {leftView}
+          </div>
           <div className="w-1/2">{rightView}</div>
         </div>
       </div>

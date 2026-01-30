@@ -215,16 +215,20 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
     return format(date, 'MMM d, yyyy');
   };
 
+  // Find where achieved nodes start and end (future nodes are first due to descending sort)
+  const firstAchievedIndex = timelineNodes.findIndex(node => !node.isFuture);
+  const hasAchievedNodes = firstAchievedIndex !== -1;
+
   return (
     <div className="px-4 py-6">
       <div className="relative ml-[7px]">
-        {/* Single continuous vertical line from first to last node */}
+        {/* Single continuous vertical line - starts at first milestone dot and ends at last */}
         <div 
           className="absolute left-0 w-0.5"
           style={{ 
             backgroundColor: COLORS.line,
-            top: '1.75rem',
-            bottom: '2.75rem',
+            top: '2.75rem',
+            bottom: '2.5rem',
           }}
         />
 
@@ -238,9 +242,8 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
                 return { backgroundColor: COLORS.green };
               }
               if (node.isFuture) {
-                const color = node.is10k || node.is1k ? COLORS.purple : COLORS.yellow;
                 return { 
-                  backgroundColor: color,
+                  backgroundColor: COLORS.muted,
                 };
               }
               if (node.isStart) {
@@ -300,8 +303,8 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
                     <div className={`flex ${node.isFuture ? 'items-center w-full' : 'items-baseline'} justify-between gap-4`}>
                       <div className="flex-1">
                         {node.isFuture && (
-                          <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: node.is10k || node.is1k ? COLORS.purple : COLORS.yellow, marginBottom: '4px' }}>
-                            {node.is10k ? 'ESTIMATED FINISH' : node.is1k ? 'NEXT 1K' : 'NEXT GOAL'}
+                          <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: node.is10k ? COLORS.muted : node.is1k ? COLORS.purple : COLORS.yellow, marginBottom: '4px' }}>
+                            {node.is10k ? 'ESTIMATED FINISH' : node.is1k ? 'NEXT 1K' : 'Next 100h'}
                           </p>
                         )}
                         {node.is10k ? (
@@ -324,7 +327,7 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
                         ) : (
                           <p 
                             className={node.isFuture ? 'text-xl font-bold leading-none' : 'font-medium'}
-                            style={{ color: getTitleColor() }}
+                            style={{ color: node.is1k ? '#FFFFFF' : getTitleColor() }}
                           >
                             {node.title}
                           </p>
@@ -358,7 +361,7 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
                           ) : (
                             <>
                               <p 
-                                className="text-3xl font-bold leading-none"
+                                className="text-2xl font-bold leading-none"
                                 style={{ color: node.is1k ? COLORS.purple : COLORS.yellow }}
                               >
                                 {getRightContent()}
@@ -370,8 +373,9 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
                                 >
                                   {formatDate(node.date)}
                                 </p>
-                            )}
-                          </>
+                              )}
+                            </>
+                          )
                         ) : (
                           <p 
                             className="text-xs"
