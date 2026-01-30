@@ -111,7 +111,7 @@ export function RepertoireManager({
             size="sm"
             onClick={() => setShowRedOnly(!showRedOnly)}
             className={cn(
-              "gap-1.5 font-semibold text-sm focus:ring-0 focus-visible:ring-0 focus:outline-none focus-visible:outline-none",
+              "gap-1.5 font-semibold text-sm focus:ring-0 focus-visible:ring-0 focus:outline-none focus-visible:outline-none hover:bg-transparent",
               showRedOnly ? "text-destructive" : "text-muted-foreground"
             )}
             style={{ color: showRedOnly ? '#FD4136' : '#595A5F' }}
@@ -124,7 +124,7 @@ export function RepertoireManager({
             variant="ghost"
             size="sm"
             onClick={() => setIsEditMode(!isEditMode)}
-            className="gap-1.5 focus:ring-0 focus-visible:ring-0 focus:outline-none focus-visible:outline-none"
+            className="gap-1.5 focus:ring-0 focus-visible:ring-0 focus:outline-none focus-visible:outline-none hover:bg-transparent"
             style={{ color: isEditMode ? '#FD4136' : '#595A5F' }}
           >
             <Pencil className="h-4 w-4" />
