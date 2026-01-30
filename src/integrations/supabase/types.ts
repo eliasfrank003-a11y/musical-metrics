@@ -70,28 +70,31 @@ export type Database = {
       }
       repertoire_items: {
         Row: {
-          composer: string | null
           created_at: string
+          divider_label: string | null
           id: number
           sort_order: number
+          started_at: string | null
           status: string | null
           title: string
           type: string
         }
         Insert: {
-          composer?: string | null
           created_at?: string
+          divider_label?: string | null
           id?: number
           sort_order: number
+          started_at?: string | null
           status?: string | null
           title: string
           type?: string
         }
         Update: {
-          composer?: string | null
           created_at?: string
+          divider_label?: string | null
           id?: number
           sort_order?: number
+          started_at?: string | null
           status?: string | null
           title?: string
           type?: string

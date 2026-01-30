@@ -6,7 +6,8 @@ export interface RepertoireItem {
   id: number;
   type: 'piece' | 'divider';
   title: string;
-  composer: string | null;
+  started_at: string | null;
+  divider_label: string | null;
   status: 'grey' | 'green' | 'red';
   sort_order: number;
 }
@@ -70,18 +71,23 @@ export function useRepertoire() {
     }
   }, [toast]);
 
-  const updateItem = useCallback(async (id: number, title: string, composer: string | null) => {
+  const updateItem = useCallback(async (
+    id: number,
+    title: string,
+    started_at: string | null,
+    divider_label: string | null
+  ) => {
     setIsUpdating(true);
     try {
       const { error } = await supabase
         .from('repertoire_items')
-        .update({ title, composer })
+        .update({ title, started_at, divider_label })
         .eq('id', id);
 
       if (error) throw error;
       
       setItems(prev => prev.map(item => 
-        item.id === id ? { ...item, title, composer } : item
+        item.id === id ? { ...item, title, started_at, divider_label } : item
       ));
     } catch (error) {
       console.error('[Repertoire] Error updating item:', error);
@@ -116,7 +122,8 @@ export function useRepertoire() {
   const addItem = useCallback(async (
     type: 'piece' | 'divider',
     title: string,
-    composer?: string,
+    started_at?: string | null,
+    divider_label?: string | null,
     positionAfterId?: number | null
   ) => {
     try {
@@ -151,7 +158,8 @@ export function useRepertoire() {
         .insert({
           type,
           title,
-          composer: composer || null,
+          started_at: started_at || null,
+          divider_label: divider_label || null,
           status: 'grey',
           sort_order: newSortOrder,
         })

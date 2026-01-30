@@ -1,9 +1,12 @@
 import { useState } from 'react';
 import { StatusDot, getNextStatus } from './StatusDot';
-import { Trash2, Edit2, Check, X, GripVertical } from 'lucide-react';
+import { Trash2, Edit2, Check, X, GripVertical, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { format, differenceInWeeks } from 'date-fns';
 
 type ItemStatus = 'grey' | 'green' | 'red';
 
@@ -11,7 +14,8 @@ export interface RepertoireItemData {
   id: number;
   type: 'piece' | 'divider';
   title: string;
-  composer: string | null;
+  started_at: string | null;
+  divider_label: string | null;
   status: ItemStatus;
   sort_order: number;
 }
@@ -19,7 +23,7 @@ export interface RepertoireItemData {
 interface RepertoireItemProps {
   item: RepertoireItemData;
   onStatusChange: (id: number, newStatus: ItemStatus) => void;
-  onEdit: (id: number, title: string, composer: string | null) => void;
+  onEdit: (id: number, title: string, started_at: string | null, divider_label: string | null) => void;
   onDelete: (id: number) => void;
   isUpdating?: boolean;
   isEditMode?: boolean;
@@ -35,6 +39,26 @@ const COLORS = {
   divider: '#2A2A2A',
 };
 
+function formatStartedAt(startedAt: string | null): string | null {
+  if (!startedAt) return null;
+  
+  const startDate = new Date(startedAt);
+  const now = new Date();
+  
+  // Format date as DD.MM.YYYY
+  const day = startDate.getDate().toString().padStart(2, '0');
+  const month = (startDate.getMonth() + 1).toString().padStart(2, '0');
+  const year = startDate.getFullYear();
+  const formattedDate = `${day}.${month}.${year}`;
+  
+  // Calculate weeks difference
+  const diffWeeks = differenceInWeeks(now, startDate);
+  
+  const weekText = diffWeeks === 1 ? '1 week ago' : `${diffWeeks} weeks ago`;
+  
+  return `${formattedDate} · ${weekText}`;
+}
+
 export function RepertoireItem({
   item,
   onStatusChange,
@@ -49,7 +73,10 @@ export function RepertoireItem({
 }: RepertoireItemProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(item.title);
-  const [editComposer, setEditComposer] = useState(item.composer || '');
+  const [editStartedAt, setEditStartedAt] = useState<Date | undefined>(
+    item.started_at ? new Date(item.started_at) : undefined
+  );
+  const [editDividerLabel, setEditDividerLabel] = useState(item.divider_label || '');
 
   const handleStatusClick = () => {
     const newStatus = getNextStatus(item.status);
@@ -57,19 +84,25 @@ export function RepertoireItem({
   };
 
   const handleSaveEdit = () => {
-    onEdit(item.id, editTitle, item.type === 'piece' ? editComposer : null);
+    onEdit(
+      item.id, 
+      editTitle, 
+      editStartedAt ? editStartedAt.toISOString().split('T')[0] : null,
+      item.type === 'divider' ? editDividerLabel : null
+    );
     setIsEditing(false);
   };
 
   const handleCancelEdit = () => {
     setEditTitle(item.title);
-    setEditComposer(item.composer || '');
+    setEditStartedAt(item.started_at ? new Date(item.started_at) : undefined);
+    setEditDividerLabel(item.divider_label || '');
     setIsEditing(false);
   };
 
   // Divider rendering
   if (item.type === 'divider') {
-    const hasText = item.title.trim().length > 0;
+    const hasLabel = (item.divider_label || '').trim().length > 0;
     
     return (
       <div 
@@ -90,10 +123,10 @@ export function RepertoireItem({
         {isEditing ? (
           <>
             <Input
-              value={editTitle}
-              onChange={(e) => setEditTitle(e.target.value)}
+              value={editDividerLabel}
+              onChange={(e) => setEditDividerLabel(e.target.value)}
               className="h-7 text-xs w-32"
-              placeholder="Optional text"
+              placeholder="Optional label"
               autoFocus
             />
             <Button size="icon" variant="ghost" className="h-6 w-6" onClick={handleSaveEdit}>
@@ -103,7 +136,7 @@ export function RepertoireItem({
               <X className="h-3 w-3" />
             </Button>
           </>
-        ) : hasText ? (
+        ) : hasLabel ? (
           <>
             <div 
               className="flex-1 h-px"
@@ -113,7 +146,7 @@ export function RepertoireItem({
               className="text-xs font-medium px-2"
               style={{ color: COLORS.muted }}
             >
-              {item.title}
+              {item.divider_label}
             </span>
             <div 
               className="flex-1 h-px"
@@ -175,37 +208,68 @@ export function RepertoireItem({
       />
       
       {isEditing ? (
-        <div className="flex-1 flex items-center gap-2">
-          <Input
-            value={editTitle}
-            onChange={(e) => setEditTitle(e.target.value)}
-            placeholder="Title"
-            className="h-8 text-sm flex-1"
-            autoFocus
-          />
-          <Input
-            value={editComposer}
-            onChange={(e) => setEditComposer(e.target.value)}
-            placeholder="Composer"
-            className="h-8 text-sm w-32"
-          />
-          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={handleSaveEdit}>
-            <Check className="h-4 w-4" />
-          </Button>
-          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={handleCancelEdit}>
-            <X className="h-4 w-4" />
-          </Button>
+        <div className="flex-1 flex flex-col gap-2">
+          <div className="flex items-center gap-2">
+            <Input
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              placeholder="Title"
+              className="h-8 text-sm flex-1"
+              autoFocus
+            />
+            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={handleSaveEdit}>
+              <Check className="h-4 w-4" />
+            </Button>
+            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={handleCancelEdit}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className={cn(
+                  "h-7 text-xs justify-start",
+                  !editStartedAt && "text-muted-foreground"
+                )}
+              >
+                <Calendar className="mr-2 h-3 w-3" />
+                {editStartedAt ? format(editStartedAt, "dd.MM.yyyy") : "Set start date"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <CalendarComponent
+                mode="single"
+                selected={editStartedAt}
+                onSelect={setEditStartedAt}
+                initialFocus
+              />
+              {editStartedAt && (
+                <div className="p-2 border-t">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full text-xs"
+                    onClick={() => setEditStartedAt(undefined)}
+                  >
+                    Clear date
+                  </Button>
+                </div>
+              )}
+            </PopoverContent>
+          </Popover>
         </div>
       ) : (
         <>
           <div className="flex-1 min-w-0">
             <p className="font-medium truncate">{item.title}</p>
-            {item.composer && (
+            {item.started_at && (
               <p 
                 className="text-xs truncate"
                 style={{ color: COLORS.muted }}
               >
-                {item.composer}
+                {formatStartedAt(item.started_at)}
               </p>
             )}
           </div>

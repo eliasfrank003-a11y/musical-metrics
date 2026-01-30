@@ -14,9 +14,9 @@ import {
 interface RepertoireManagerProps {
   items: RepertoireItemData[];
   onStatusChange: (id: number, newStatus: 'grey' | 'green' | 'red') => void;
-  onEdit: (id: number, title: string, composer: string | null) => void;
+  onEdit: (id: number, title: string, started_at: string | null, divider_label: string | null) => void;
   onDelete: (id: number) => void;
-  onAdd: (type: 'piece' | 'divider', title: string, composer?: string, positionAfterId?: number | null) => void;
+  onAdd: (type: 'piece' | 'divider', title: string, started_at?: string | null, divider_label?: string | null, positionAfterId?: number | null) => void;
   onReorder: (draggedId: number, targetId: number) => void;
   isLoading?: boolean;
 }
@@ -40,7 +40,6 @@ export function RepertoireManager({
   const [isAddingPiece, setIsAddingPiece] = useState(false);
   const [isAddingDivider, setIsAddingDivider] = useState(false);
   const [newTitle, setNewTitle] = useState('');
-  const [newComposer, setNewComposer] = useState('');
   const [draggedId, setDraggedId] = useState<number | null>(null);
   const [selectedPositionId, setSelectedPositionId] = useState<number | null>(null);
 
@@ -74,15 +73,14 @@ export function RepertoireManager({
 
   const handleAddPiece = () => {
     if (!newTitle.trim()) return;
-    onAdd('piece', newTitle.trim(), newComposer.trim() || undefined);
+    onAdd('piece', newTitle.trim(), null, null);
     setNewTitle('');
-    setNewComposer('');
     setIsAddingPiece(false);
   };
 
   const handleAddDivider = () => {
     // Allow empty dividers
-    onAdd('divider', newTitle.trim(), undefined, selectedPositionId);
+    onAdd('divider', '', null, newTitle.trim() || null, selectedPositionId);
     setNewTitle('');
     setIsAddingDivider(false);
     setSelectedPositionId(null);
@@ -148,11 +146,6 @@ export function RepertoireManager({
             onChange={(e) => setNewTitle(e.target.value)}
             autoFocus
           />
-          <Input
-            placeholder="Composer (optional)"
-            value={newComposer}
-            onChange={(e) => setNewComposer(e.target.value)}
-          />
           <div className="flex gap-2">
             <Button size="sm" onClick={handleAddPiece} disabled={!newTitle.trim()}>
               Add Piece
@@ -168,7 +161,7 @@ export function RepertoireManager({
       {isAddingDivider && (
         <div className="px-4 py-3 border-b border-border/30 space-y-3 max-w-md mx-auto w-full">
           <Input
-            placeholder="Divider text (optional)"
+            placeholder="Divider label (optional)"
             value={newTitle}
             onChange={(e) => setNewTitle(e.target.value)}
             autoFocus
