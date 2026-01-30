@@ -29,6 +29,7 @@ const COLORS = {
 export function PracticeChart({ data, timeRange, onHover }: PracticeChartProps) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [scrubPercentage, setScrubPercentage] = useState<number>(100);
+  const [isScrubbing, setIsScrubbing] = useState(false);
 
   const chartData = useMemo(() => {
     return data.map((d, index) => ({
@@ -109,6 +110,26 @@ export function PracticeChart({ data, timeRange, onHover }: PracticeChartProps) 
       onHover(null);
     }
   }, [onHover]);
+
+  const handleTouchStart = useCallback((state: any, event?: any) => {
+    if (event?.preventDefault) event.preventDefault();
+    if (event?.stopPropagation) event.stopPropagation();
+    setIsScrubbing(true);
+    handleMouseMove(state);
+  }, [handleMouseMove]);
+
+  const handleTouchMove = useCallback((state: any, event?: any) => {
+    if (!isScrubbing) return;
+    if (event?.preventDefault) event.preventDefault();
+    if (event?.stopPropagation) event.stopPropagation();
+    handleMouseMove(state);
+  }, [isScrubbing, handleMouseMove]);
+
+  const handleTouchEnd = useCallback((_: any, event?: any) => {
+    if (event?.preventDefault) event.preventDefault();
+    if (event?.stopPropagation) event.stopPropagation();
+    setIsScrubbing(false);
+  }, []);
 
   if (data.length === 0) {
     return (
@@ -242,13 +263,20 @@ export function PracticeChart({ data, timeRange, onHover }: PracticeChartProps) 
   const scrubGradientId = `scrubGradient-${Math.random().toString(36).substr(2, 9)}`;
 
   return (
-    <div className="w-full h-72 md:h-80 relative">
+    <div
+      className="w-full h-72 md:h-80 relative overscroll-none"
+      style={{ touchAction: isScrubbing ? 'none' : 'pan-y' }}
+    >
       <ResponsiveContainer width="100%" height="100%">
         <LineChart 
           data={chartData} 
           margin={{ top: 40, right: 24, left: 24, bottom: 20 }}
           onMouseMove={handleMouseMove}
           onMouseLeave={handleMouseLeave}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          onTouchCancel={handleTouchEnd}
         >
           <defs>
             {/* Scrub gradient to dim line after selected point */}
