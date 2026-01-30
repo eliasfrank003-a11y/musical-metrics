@@ -238,83 +238,6 @@ export function PracticeChart({ data, timeRange, onHover }: PracticeChartProps) 
     );
   };
 
-  // Format hours for tooltip display
-  const formatHoursMinutes = (hours: number) => {
-    const totalMinutes = Math.round(hours * 60);
-    const h = Math.floor(totalMinutes / 60);
-    const m = totalMinutes % 60;
-    if (h === 0) return `${m}m`;
-    if (m === 0) return `${h}h`;
-    return `${h}h ${m}m`;
-  };
-
-  // Custom floating label tooltip with edge clamping
-  const CustomTooltip = ({ active, payload, coordinate }: any) => {
-    if (active && payload && payload.length && coordinate) {
-      const data = payload[0].payload as DailyData;
-      
-      // Calculate the delta: how much this day changed the average
-      const previousAverage = data.dayNumber > 1 
-        ? (data.cumulativeHours - data.hoursPlayed) / (data.dayNumber - 1)
-        : 0;
-      const averageDelta = data.cumulativeAverage - previousAverage;
-      
-      // Format delta in seconds/minutes
-      const formatDeltaValue = (hours: number) => {
-        const totalSeconds = Math.round(Math.abs(hours) * 3600);
-        const m = Math.floor(totalSeconds / 60);
-        const s = totalSeconds % 60;
-        const sign = hours >= 0 ? '+' : '-';
-        if (m === 0) return `${sign}${s}s`;
-        if (s === 0) return `${sign}${m}m`;
-        return `${sign}${m}m ${s}s`;
-      };
-
-      // Edge clamping calculation
-      // Tooltip is roughly 180px wide, so half is 90px
-      const tooltipHalfWidth = 90;
-      const leftEdge = 8; // Minimum padding from left
-      const rightEdge = 8; // Minimum padding from right (relative to chart)
-      
-      // Get approximate chart width from the container (assume ~360px mobile, will be in margin area)
-      // The coordinate.x is relative to the chart plotting area
-      const pointX = coordinate.x;
-      
-      // Calculate the offset needed to keep tooltip visible
-      // Default: center the tooltip (translateX -50%)
-      // If too close to left: shift right
-      // If too close to right: shift left
-      let offsetX = 0;
-      
-      if (pointX < tooltipHalfWidth + leftEdge) {
-        // Near left edge - shift tooltip right
-        offsetX = tooltipHalfWidth - pointX + leftEdge;
-      }
-      
-      return (
-        <div 
-          className="flex items-center gap-1.5 pointer-events-none whitespace-nowrap"
-          style={{ 
-            transform: `translateX(calc(-50% + ${offsetX}px))`,
-          }}
-        >
-          <span className="text-sm" style={{ color: COLORS.muted }}>
-            {format(data.date, 'd MMM')}
-          </span>
-          <span className="text-sm" style={{ color: COLORS.muted }}>•</span>
-          <span className="text-sm" style={{ color: COLORS.muted }}>
-            {formatHoursMinutes(data.hoursPlayed)}
-          </span>
-          <span className="text-sm" style={{ color: COLORS.muted }}>•</span>
-          <span className="text-sm" style={{ color: COLORS.muted }}>
-            {formatDeltaValue(averageDelta)}
-          </span>
-        </div>
-      );
-    }
-    return null;
-  };
-
   // Generate unique gradient ID to avoid conflicts
   const scrubGradientId = `scrubGradient-${Math.random().toString(36).substr(2, 9)}`;
 
@@ -381,9 +304,8 @@ export function PracticeChart({ data, timeRange, onHover }: PracticeChartProps) 
           />
           <Tooltip
             cursor={false}
-            content={<CustomTooltip />}
-            position={{ y: 0 }}
-            wrapperStyle={{ zIndex: 100 }}
+            content={() => null}
+            wrapperStyle={{ display: 'none' }}
           />
           
           {/* Single line with dynamic gradient stroke */}

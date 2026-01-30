@@ -1,4 +1,4 @@
-import { useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useState, useRef, useEffect } from 'react';
 import {
   LineChart,
   Line,
@@ -27,6 +27,15 @@ const COLORS = {
 };
 
 export function IntradayChart({ data, baselineAverage, onHover }: IntradayChartProps) {
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const [scrubPercentage, setScrubPercentage] = useState<number>(100);
+  const [isScrubbing, setIsScrubbing] = useState(false);
+  const chartWrapperRef = useRef<HTMLDivElement>(null);
+  const isCoarsePointer = useMemo(
+    () => typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches,
+    []
+  );
+
   const chartData = useMemo(() => {
     // Filter out data before 6am
     return data
@@ -108,27 +117,98 @@ export function IntradayChart({ data, baselineAverage, onHover }: IntradayChartP
     return format(new Date(timestamp), 'HH:mm');
   }, []);
 
-  // Format hours for tooltip display
-  const formatHoursMinutes = (hours: number) => {
-    const totalMinutes = Math.round(hours * 60);
-    const h = Math.floor(totalMinutes / 60);
-    const m = totalMinutes % 60;
-    if (h === 0) return `${m}m`;
-    if (m === 0) return `${h}h`;
-    return `${h}h ${m}m`;
-  };
-
   const handleMouseMove = useCallback((state: any) => {
+    if (state?.activeTooltipIndex !== undefined) {
+      const index = state.activeTooltipIndex;
+      setActiveIndex(index);
+      const percentage = chartData.length > 1 
+        ? (index / (chartData.length - 1)) * 100 
+        : 100;
+      setScrubPercentage(percentage);
+    }
     if (state?.activePayload?.[0]?.payload && onHover) {
       onHover(state.activePayload[0].payload as IntradayData);
     }
-  }, [onHover]);
+  }, [onHover, chartData.length]);
 
   const handleMouseLeave = useCallback(() => {
+    setActiveIndex(null);
+    setScrubPercentage(100);
     if (onHover) {
       onHover(null);
     }
   }, [onHover]);
+
+  const updateFromClientX = useCallback((clientX: number) => {
+    if (!chartWrapperRef.current || chartData.length === 0) return;
+    const rect = chartWrapperRef.current.getBoundingClientRect();
+    const x = Math.min(Math.max(clientX - rect.left, 0), rect.width);
+    const ratio = rect.width > 0 ? x / rect.width : 0;
+    const index = Math.round(ratio * (chartData.length - 1));
+    const clampedIndex = Math.min(Math.max(index, 0), chartData.length - 1);
+
+    setActiveIndex(clampedIndex);
+    setScrubPercentage(chartData.length > 1 ? (clampedIndex / (chartData.length - 1)) * 100 : 100);
+    if (onHover) {
+      onHover(chartData[clampedIndex] as IntradayData);
+    }
+  }, [chartData, onHover]);
+
+  const handleScrubStart = useCallback((clientX: number, event?: React.SyntheticEvent) => {
+    event?.preventDefault();
+    event?.stopPropagation();
+    setIsScrubbing(true);
+    updateFromClientX(clientX);
+  }, [updateFromClientX]);
+
+  const handleScrubMove = useCallback((clientX: number, event?: React.SyntheticEvent) => {
+    if (!isScrubbing) return;
+    event?.preventDefault();
+    event?.stopPropagation();
+    updateFromClientX(clientX);
+  }, [isScrubbing, updateFromClientX]);
+
+  const handleScrubEnd = useCallback((event?: React.SyntheticEvent | Event) => {
+    if (event && 'preventDefault' in event) event.preventDefault();
+    if (event && 'stopPropagation' in event) event.stopPropagation();
+    setIsScrubbing(false);
+    handleMouseLeave();
+  }, [handleMouseLeave]);
+
+  // Attach global listeners when scrubbing to track finger anywhere on screen
+  useEffect(() => {
+    if (!isScrubbing) return;
+
+    const handleGlobalMove = (e: TouchEvent | PointerEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const clientX = 'touches' in e ? e.touches[0]?.clientX : e.clientX;
+      if (clientX !== undefined) updateFromClientX(clientX);
+    };
+
+    const handleGlobalEnd = (e: TouchEvent | PointerEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsScrubbing(false);
+      handleMouseLeave();
+    };
+
+    window.addEventListener('touchmove', handleGlobalMove, { passive: false });
+    window.addEventListener('touchend', handleGlobalEnd, { passive: false });
+    window.addEventListener('touchcancel', handleGlobalEnd, { passive: false });
+    window.addEventListener('pointermove', handleGlobalMove, { passive: false });
+    window.addEventListener('pointerup', handleGlobalEnd, { passive: false });
+    window.addEventListener('pointercancel', handleGlobalEnd, { passive: false });
+
+    return () => {
+      window.removeEventListener('touchmove', handleGlobalMove);
+      window.removeEventListener('touchend', handleGlobalEnd);
+      window.removeEventListener('touchcancel', handleGlobalEnd);
+      window.removeEventListener('pointermove', handleGlobalMove);
+      window.removeEventListener('pointerup', handleGlobalEnd);
+      window.removeEventListener('pointercancel', handleGlobalEnd);
+    };
+  }, [isScrubbing, updateFromClientX, handleMouseLeave]);
 
   if (data.length === 0) {
     return (
@@ -140,7 +220,9 @@ export function IntradayChart({ data, baselineAverage, onHover }: IntradayChartP
 
   // Determine line color based on whether current value is above or below baseline
   const lastValue = chartData[chartData.length - 1]?.averageHours || 0;
-  const isAboveBaseline = lastValue >= baselineAverage;
+  const selectedValue = activeIndex !== null ? chartData[activeIndex]?.averageHours : null;
+  const effectiveValue = selectedValue ?? lastValue;
+  const isAboveBaseline = effectiveValue >= baselineAverage;
   const lineColor = isAboveBaseline ? COLORS.positive : COLORS.negative;
 
   // Custom active dot with glow effect
@@ -151,67 +233,49 @@ export function IntradayChart({ data, baselineAverage, onHover }: IntradayChartP
     
     return (
       <g>
-        <circle cx={cx} cy={cy} r={24} fill={dotColor} opacity={0.1} className="animate-pulse-ring" />
-        <circle cx={cx} cy={cy} r={16} fill={dotColor} opacity={0.2} className="animate-pulse-ring-delay" />
-        <circle cx={cx} cy={cy} r={10} fill={dotColor} opacity={0.4} />
-        <circle cx={cx} cy={cy} r={6} fill={dotColor} stroke="none" />
+        {/* Soft outer halo */}
+        <circle
+          cx={cx}
+          cy={cy}
+          r={20}
+          fill={dotColor}
+          opacity={0.08}
+        />
+        {/* Subtle glow */}
+        <circle
+          cx={cx}
+          cy={cy}
+          r={13}
+          fill={dotColor}
+          opacity={0.18}
+        />
+        {/* Solid inner dot */}
+        <circle
+          cx={cx}
+          cy={cy}
+          r={5}
+          fill={dotColor}
+          stroke="none"
+        />
       </g>
     );
   };
 
-  // Custom tooltip
-  const CustomTooltip = ({ active, payload, coordinate }: any) => {
-    if (active && payload && payload.length && coordinate) {
-      const d = payload[0].payload;
-      
-      // Calculate delta from previous hour
-      const prevAvg = d.index > 0 ? chartData[d.index - 1]?.averageHours : d.averageHours;
-      const delta = d.averageHours - prevAvg;
-      
-      const formatDeltaValue = (hours: number) => {
-        const totalSeconds = Math.round(Math.abs(hours) * 3600);
-        const m = Math.floor(totalSeconds / 60);
-        const s = totalSeconds % 60;
-        const sign = hours >= 0 ? '+' : '-';
-        if (m === 0) return `${sign}${s}s`;
-        if (s === 0) return `${sign}${m}m`;
-        return `${sign}${m}m ${s}s`;
-      };
-
-      // Edge clamping
-      const tooltipHalfWidth = 90;
-      const leftEdge = 8;
-      const pointX = coordinate.x;
-      let offsetX = 0;
-      
-      if (pointX < tooltipHalfWidth + leftEdge) {
-        offsetX = tooltipHalfWidth - pointX + leftEdge;
-      }
-      
-      return (
-        <div 
-          className="flex items-center gap-1.5 pointer-events-none whitespace-nowrap"
-          style={{ transform: `translateX(calc(-50% + ${offsetX}px))` }}
-        >
-          <span className="text-sm" style={{ color: COLORS.muted }}>
-            {d.timeStr}
-          </span>
-          <span className="text-sm" style={{ color: COLORS.muted }}>•</span>
-          <span className="text-sm" style={{ color: COLORS.muted }}>
-            {formatHoursMinutes(d.hoursPlayedThisInterval)} played
-          </span>
-          <span className="text-sm" style={{ color: COLORS.muted }}>•</span>
-          <span className="text-sm" style={{ color: COLORS.muted }}>
-            {formatDeltaValue(delta)}
-          </span>
-        </div>
-      );
-    }
-    return null;
-  };
+  // Generate unique gradient ID to avoid conflicts
+  const scrubGradientId = `scrubGradient-intraday-${Math.random().toString(36).substr(2, 9)}`;
 
   return (
-    <div className="w-full h-72 md:h-80 relative">
+    <div
+      ref={chartWrapperRef}
+      className="w-full h-72 md:h-80 relative overscroll-none"
+      style={{ touchAction: isScrubbing ? 'none' : 'pan-y' }}
+    >
+      <div
+        className="absolute left-0 right-0 top-[-16px] bottom-[-24px] z-20"
+        style={{ pointerEvents: isCoarsePointer || isScrubbing ? 'auto' : 'none' }}
+        onPointerDown={(event) => handleScrubStart(event.clientX, event)}
+        onTouchStartCapture={(event) => handleScrubStart(event.touches[0].clientX, event)}
+      />
       <ResponsiveContainer width="100%" height="100%">
         <LineChart 
           data={chartData} 
@@ -219,6 +283,15 @@ export function IntradayChart({ data, baselineAverage, onHover }: IntradayChartP
           onMouseMove={handleMouseMove}
           onMouseLeave={handleMouseLeave}
         >
+          <defs>
+            {/* Scrub gradient to dim line after selected point */}
+            <linearGradient id={scrubGradientId} x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset={`${scrubPercentage}%`} stopColor={lineColor} />
+              <stop offset={`${scrubPercentage}%`} stopColor={COLORS.muted} stopOpacity={0.45} />
+              <stop offset="100%" stopColor={COLORS.muted} stopOpacity={0.45} />
+            </linearGradient>
+          </defs>
+          
           <XAxis
             dataKey="timestamp"
             type="number"
@@ -253,18 +326,18 @@ export function IntradayChart({ data, baselineAverage, onHover }: IntradayChartP
           />
           <Tooltip
             cursor={false}
-            content={(props) => <CustomTooltip {...props} />}
-            position={{ y: 0 }}
-            wrapperStyle={{ zIndex: 100 }}
+            content={() => null}
+            wrapperStyle={{ display: 'none' }}
           />
           
+          {/* Single line with dynamic gradient stroke */}
           <Line
             type="linear"
             dataKey="averageHours"
-            stroke={lineColor}
+            stroke={activeIndex !== null ? `url(#${scrubGradientId})` : lineColor}
             strokeWidth={2.5}
-            dot={false}
-            activeDot={renderActiveDot}
+            dot={(props: any) => (props.index === activeIndex ? renderActiveDot(props) : null)}
+            activeDot={false}
             isAnimationActive={false}
           />
         </LineChart>

@@ -121,14 +121,43 @@ All colors MUST be HSL.
     background-color: #000000;
   }
 
-  /* Hide scrollbars */
-  * {
-    scrollbar-width: none; /* Firefox */
-    -ms-overflow-style: none; /* IE and Edge */
+  /* Completely disable scrollbars everywhere */
+  *,
+  *::before,
+  *::after,
+  html,
+  body {
+    scrollbar-width: none !important; /* Firefox */
+    -ms-overflow-style: none !important; /* IE and Edge */
   }
 
-  *::-webkit-scrollbar {
-    display: none; /* Chrome, Safari, Opera */
+  *::-webkit-scrollbar,
+  html::-webkit-scrollbar,
+  body::-webkit-scrollbar {
+    display: none !important; /* Chrome, Safari, Opera */
+    width: 0 !important;
+    height: 0 !important;
+    background: transparent !important;
+  }
+
+  /* Disable text selection to prevent iOS copy/lookup popup */
+  *,
+  html,
+  body {
+    -webkit-user-select: none !important;
+    -moz-user-select: none !important;
+    -ms-user-select: none !important;
+    user-select: none !important;
+    -webkit-touch-callout: none !important;
+  }
+
+  /* Allow selection in input fields */
+  input,
+  textarea {
+    -webkit-user-select: text !important;
+    -moz-user-select: text !important;
+    -ms-user-select: text !important;
+    user-select: text !important;
   }
 }
 

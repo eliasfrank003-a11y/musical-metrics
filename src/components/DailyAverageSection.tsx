@@ -117,9 +117,9 @@ export function DailyAverageSection({ onAnalyticsUpdate }: DailyAverageSectionPr
     };
   }, []);
 
-  const { filteredData, delta, intradayData, baselineAverage } = useMemo(() => {
+  const { filteredData, delta, intradayData, baselineAverage, todayPlayTime } = useMemo(() => {
     if (!analytics) {
-      return { filteredData: [], delta: { value: 0, percentage: 0 }, intradayData: [], baselineAverage: 0 };
+      return { filteredData: [], delta: { value: 0, percentage: 0 }, intradayData: [], baselineAverage: 0, todayPlayTime: 0 };
     }
     
     // For 1D view, calculate intraday data with plateau-slope model
@@ -128,11 +128,24 @@ export function DailyAverageSection({ onAnalyticsUpdate }: DailyAverageSectionPr
       // Delta is the difference between current average and yesterday's baseline
       const currentAvg = intraday.length > 0 ? intraday[intraday.length - 1].cumulativeAverage : analytics.currentAverage;
       const intradayDelta = currentAvg - baseline;
+      
+      // Calculate today's total play time from raw sessions
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayPlayTimeHours = rawSessions
+        .filter(s => {
+          const sessionDate = new Date(s.started_at);
+          sessionDate.setHours(0, 0, 0, 0);
+          return sessionDate.getTime() === today.getTime();
+        })
+        .reduce((sum, s) => sum + s.duration_seconds / 3600, 0);
+      
       return { 
         filteredData: [], 
         delta: { value: intradayDelta, percentage: 0 }, 
         intradayData: intraday,
-        baselineAverage: baseline
+        baselineAverage: baseline,
+        todayPlayTime: todayPlayTimeHours
       };
     }
     
@@ -141,7 +154,7 @@ export function DailyAverageSection({ onAnalyticsUpdate }: DailyAverageSectionPr
       data = downsampleData(data, 100);
     }
     const delta = calculateDelta(data);
-    return { filteredData: data, delta, intradayData: [], baselineAverage: 0 };
+    return { filteredData: data, delta, intradayData: [], baselineAverage: 0, todayPlayTime: 0 };
   }, [analytics, timeRange, rawSessions]);
 
   const handleManualSync = async () => {
@@ -198,6 +211,10 @@ export function DailyAverageSection({ onAnalyticsUpdate }: DailyAverageSectionPr
         delta={delta.value}
         isPositive={delta.value >= 0}
         hoveredData={hoveredData}
+        hoveredIntradayData={hoveredIntradayData}
+        baselineAverage={baselineAverage}
+        isIntradayView={timeRange === '1D'}
+        todayPlayTime={todayPlayTime}
       />
 
       {/* Time Range Selector */}
