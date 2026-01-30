@@ -13,6 +13,7 @@ const REPERTOIRE_SEED_DATA: { type: 'piece' | 'divider'; title: string; composer
 export function Home() {
   const [analytics, setAnalytics] = useState<AnalyticsResult | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [isRepertoireEditing, setIsRepertoireEditing] = useState(false);
 
   // Initialize seeding (runs once if tables are empty)
   useDataSeeding({
@@ -36,8 +37,9 @@ export function Home() {
   return (
     <SwipeableLayout
       leftView={timeView}
-      rightView={<Repertoire />}
+      rightView={<Repertoire onEditingStateChange={setIsRepertoireEditing} />}
       onSync={handleSync}
+      isSwipeDisabled={isRepertoireEditing}
     />
   );
 }

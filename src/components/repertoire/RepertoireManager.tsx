@@ -1,8 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { RepertoireItem, RepertoireItemData } from './RepertoireItem';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Filter, Pencil } from 'lucide-react';
+import { Plus, Pencil, Calendar } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   DropdownMenu,
@@ -10,6 +10,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { format } from 'date-fns';
 
 interface RepertoireManagerProps {
   items: RepertoireItemData[];
@@ -19,6 +22,7 @@ interface RepertoireManagerProps {
   onAdd: (type: 'piece' | 'divider', title: string, started_at?: string | null, divider_label?: string | null, positionAfterId?: number | null) => void;
   onReorder: (draggedId: number, targetId: number) => void;
   isLoading?: boolean;
+  onEditingStateChange?: (isEditing: boolean) => void;
 }
 
 const COLORS = {
@@ -34,14 +38,22 @@ export function RepertoireManager({
   onAdd,
   onReorder,
   isLoading,
+  onEditingStateChange,
 }: RepertoireManagerProps) {
   const [showRedOnly, setShowRedOnly] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [isAddingPiece, setIsAddingPiece] = useState(false);
   const [isAddingDivider, setIsAddingDivider] = useState(false);
   const [newTitle, setNewTitle] = useState('');
+  const [newStartDate, setNewStartDate] = useState<Date | undefined>(undefined);
   const [draggedId, setDraggedId] = useState<number | null>(null);
   const [selectedPositionId, setSelectedPositionId] = useState<number | null>(null);
+
+  // Notify parent when editing state changes
+  useEffect(() => {
+    const isActivelyEditing = isEditMode || isAddingPiece || isAddingDivider;
+    onEditingStateChange?.(isActivelyEditing);
+  }, [isEditMode, isAddingPiece, isAddingDivider, onEditingStateChange]);
 
   const handleDragStart = (e: React.DragEvent, id: number) => {
     setDraggedId(id);
@@ -73,8 +85,10 @@ export function RepertoireManager({
 
   const handleAddPiece = () => {
     if (!newTitle.trim()) return;
-    onAdd('piece', newTitle.trim(), null, null);
+    const startDateStr = newStartDate ? newStartDate.toISOString().split('T')[0] : null;
+    onAdd('piece', newTitle.trim(), startDateStr, null);
     setNewTitle('');
+    setNewStartDate(undefined);
     setIsAddingPiece(false);
   };
 
@@ -91,31 +105,30 @@ export function RepertoireManager({
       {/* Header - no title, just controls */}
       <div className="flex items-center justify-end px-4 py-3 border-b border-border/30">
         <div className="flex items-center gap-2">
-          {/* Edit Mode Toggle */}
+          {/* Red List Filter Toggle - now just "RED" text */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowRedOnly(!showRedOnly)}
+            className={cn(
+              "gap-1.5 font-semibold text-sm",
+              showRedOnly ? "text-destructive" : "text-muted-foreground"
+            )}
+          >
+            RED
+          </Button>
+
+          {/* Edit Mode Toggle - red when active */}
           <Button
             variant="ghost"
             size="sm"
             onClick={() => setIsEditMode(!isEditMode)}
             className={cn(
               "gap-1.5",
-              isEditMode && "text-primary"
+              isEditMode ? "text-destructive" : "text-muted-foreground"
             )}
           >
             <Pencil className="h-4 w-4" />
-          </Button>
-
-          {/* Red List Filter Toggle */}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setShowRedOnly(!showRedOnly)}
-            className={cn(
-              "gap-1.5",
-              showRedOnly && "text-destructive"
-            )}
-          >
-            <Filter className="h-4 w-4" />
-            <span className="text-xs">Red List</span>
           </Button>
 
           {/* Add Menu */}
@@ -139,18 +152,56 @@ export function RepertoireManager({
 
       {/* Add New Piece Form */}
       {isAddingPiece && (
-        <div className="px-4 py-3 border-b border-border/30 space-y-2 max-w-md mx-auto w-full">
+        <div className="px-4 py-3 border-b border-border/30 space-y-3 max-w-md mx-auto w-full">
           <Input
             placeholder="Title"
             value={newTitle}
             onChange={(e) => setNewTitle(e.target.value)}
             autoFocus
           />
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className={cn(
+                  "w-full h-9 justify-start",
+                  !newStartDate && "text-muted-foreground"
+                )}
+              >
+                <Calendar className="mr-2 h-4 w-4" />
+                {newStartDate ? format(newStartDate, "dd.MM.yyyy") : "Set start date (optional)"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <CalendarComponent
+                mode="single"
+                selected={newStartDate}
+                onSelect={setNewStartDate}
+                initialFocus
+              />
+              {newStartDate && (
+                <div className="p-2 border-t">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full text-xs"
+                    onClick={() => setNewStartDate(undefined)}
+                  >
+                    Clear date
+                  </Button>
+                </div>
+              )}
+            </PopoverContent>
+          </Popover>
           <div className="flex gap-2">
             <Button size="sm" onClick={handleAddPiece} disabled={!newTitle.trim()}>
               Add Piece
             </Button>
-            <Button size="sm" variant="ghost" onClick={() => setIsAddingPiece(false)}>
+            <Button size="sm" variant="ghost" onClick={() => {
+              setIsAddingPiece(false);
+              setNewStartDate(undefined);
+            }}>
               Cancel
             </Button>
           </div>

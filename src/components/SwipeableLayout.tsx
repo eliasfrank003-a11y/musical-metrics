@@ -11,37 +11,58 @@ interface SwipeableLayoutProps {
   leftView: ReactNode;
   rightView: ReactNode;
   onSync?: () => Promise<void>;
+  isSwipeDisabled?: boolean;
 }
 
-export function SwipeableLayout({ leftView, rightView, onSync }: SwipeableLayoutProps) {
+export function SwipeableLayout({ leftView, rightView, onSync, isSwipeDisabled }: SwipeableLayoutProps) {
   const [currentView, setCurrentView] = useState<'left' | 'right'>('left');
-  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
   const [touchDelta, setTouchDelta] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
+  const [isScrolling, setIsScrolling] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const { syncCalendar, isSyncing } = useCalendarSync();
   const { toast } = useToast();
 
   const SWIPE_THRESHOLD = 50;
+  const SCROLL_THRESHOLD = 10; // Detect vertical scroll after 10px of vertical movement
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    setTouchStart(e.touches[0].clientX);
+    if (isSwipeDisabled) return;
+    setTouchStart({ x: e.touches[0].clientX, y: e.touches[0].clientY });
+    setIsScrolling(false);
     setIsSwiping(true);
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (touchStart === null) return;
-    setTouchDelta(e.touches[0].clientX - touchStart);
+    if (touchStart === null || isSwipeDisabled) return;
+
+    const currentX = e.touches[0].clientX;
+    const currentY = e.touches[0].clientY;
+    const deltaX = currentX - touchStart.x;
+    const deltaY = currentY - touchStart.y;
+
+    // Determine if user is scrolling vertically
+    if (Math.abs(deltaY) > SCROLL_THRESHOLD) {
+      setIsScrolling(true);
+      return;
+    }
+
+    // Only allow horizontal swipe if not scrolling vertically
+    if (!isScrolling) {
+      setTouchDelta(deltaX);
+    }
   };
 
   const handleTouchEnd = () => {
-    if (Math.abs(touchDelta) > SWIPE_THRESHOLD) {
+    if (!isScrolling && Math.abs(touchDelta) > SWIPE_THRESHOLD) {
       if (touchDelta > 0 && currentView === 'right') setCurrentView('left');
       else if (touchDelta < 0 && currentView === 'left') setCurrentView('right');
     }
     setTouchStart(null);
     setTouchDelta(0);
     setIsSwiping(false);
+    setIsScrolling(false);
   };
 
   const getTranslateX = () => {
@@ -84,19 +105,21 @@ export function SwipeableLayout({ leftView, rightView, onSync }: SwipeableLayout
         {/* Tab Selectors - Trade Republic style */}
         <div className="flex items-center gap-4">
           <button 
-            onClick={() => setCurrentView('left')} 
+            onClick={() => !isSwipeDisabled && setCurrentView('left')} 
             className={cn(
               "text-xl font-semibold transition-colors",
-              currentView === 'left' ? "text-foreground" : "text-muted-foreground"
+              currentView === 'left' ? "text-foreground" : "text-muted-foreground",
+              isSwipeDisabled && "opacity-50 cursor-not-allowed"
             )} 
           >
             Time
           </button>
           <button 
-            onClick={() => setCurrentView('right')} 
+            onClick={() => !isSwipeDisabled && setCurrentView('right')} 
             className={cn(
               "text-xl font-semibold transition-colors",
-              currentView === 'right' ? "text-foreground" : "text-muted-foreground"
+              currentView === 'right' ? "text-foreground" : "text-muted-foreground",
+              isSwipeDisabled && "opacity-50 cursor-not-allowed"
             )} 
           >
             Repertoire
