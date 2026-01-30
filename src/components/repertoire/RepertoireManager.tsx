@@ -111,10 +111,9 @@ export function RepertoireManager({
             size="sm"
             onClick={() => setShowRedOnly(!showRedOnly)}
             className={cn(
-              "gap-1.5 font-semibold text-sm focus:ring-0 focus-visible:ring-0 focus:outline-none focus-visible:outline-none hover:bg-transparent",
+              "gap-1.5 font-semibold text-sm focus:ring-0 focus-visible:ring-0 focus:outline-none focus-visible:outline-none hover:bg-transparent hover:text-destructive",
               showRedOnly ? "text-destructive" : "text-muted-foreground"
             )}
-            style={{ color: showRedOnly ? '#FD4136' : '#595A5F' }}
           >
             RED
           </Button>
@@ -124,8 +123,12 @@ export function RepertoireManager({
             variant="ghost"
             size="sm"
             onClick={() => setIsEditMode(!isEditMode)}
-            className="gap-1.5 focus:ring-0 focus-visible:ring-0 focus:outline-none focus-visible:outline-none hover:bg-transparent"
-            style={{ color: isEditMode ? '#FD4136' : '#595A5F' }}
+            className={cn(
+              "gap-1.5 focus:ring-0 focus-visible:ring-0 focus:outline-none focus-visible:outline-none hover:bg-transparent",
+              isEditMode 
+                ? "text-destructive hover:text-destructive" 
+                : "text-muted-foreground hover:text-foreground"
+            )}
           >
             <Pencil className="h-4 w-4" />
           </Button>
@@ -135,11 +138,10 @@ export function RepertoireManager({
             <DropdownMenuTrigger asChild>
               <Button 
                 variant="ghost" 
-                size="icon" 
-                className="h-8 w-8 focus:ring-0 focus-visible:ring-0 focus:outline-none focus-visible:outline-none"
-                style={{ color: '#595A5F' }}
+                size="sm"
+                className="text-muted-foreground hover:bg-transparent hover:text-foreground focus:ring-0 focus-visible:ring-0 focus:outline-none focus-visible:outline-none"
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-5 w-5" strokeWidth={2.5} />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">

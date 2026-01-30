@@ -17,6 +17,7 @@ export interface IntradayData {
   hourOfDay: number;
   cumulativeAverage: number;
   hoursPlayedThisInterval: number;
+  cumulativeTodayHours: number; // Total hours played today up to this point
   isCurrentHour: boolean;
 }
 
@@ -343,6 +344,7 @@ export function calculateIntradayData(
       hourOfDay: hour,
       cumulativeAverage,
       hoursPlayedThisInterval,
+      cumulativeTodayHours: hoursAtThisPoint,
       isCurrentHour: hour === currentHour && isToday(today),
     });
   }

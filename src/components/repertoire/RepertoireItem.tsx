@@ -164,7 +164,7 @@ export function RepertoireItem({
             <Button 
               size="icon" 
               variant="ghost" 
-              className="h-6 w-6"
+              className="h-6 w-6 hover:bg-transparent hover:text-destructive"
               onClick={() => setIsEditing(true)}
             >
               <Edit2 className="h-3 w-3" />
@@ -172,7 +172,7 @@ export function RepertoireItem({
             <Button 
               size="icon" 
               variant="ghost" 
-              className="h-6 w-6 hover:text-destructive"
+              className="h-6 w-6 hover:bg-transparent hover:text-destructive"
               onClick={() => onDelete(item.id)}
             >
               <Trash2 className="h-3 w-3" />
@@ -279,7 +279,7 @@ export function RepertoireItem({
               <Button 
                 size="icon" 
                 variant="ghost" 
-                className="h-7 w-7"
+                className="h-7 w-7 hover:bg-transparent hover:text-destructive"
                 onClick={() => setIsEditing(true)}
               >
                 <Edit2 className="h-3.5 w-3.5" />
@@ -287,7 +287,7 @@ export function RepertoireItem({
               <Button 
                 size="icon" 
                 variant="ghost" 
-                className="h-7 w-7 hover:text-destructive"
+                className="h-7 w-7 hover:bg-transparent hover:text-destructive"
                 onClick={() => onDelete(item.id)}
               >
                 <Trash2 className="h-3.5 w-3.5" />

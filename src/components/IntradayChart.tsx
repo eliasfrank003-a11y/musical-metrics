@@ -121,15 +121,17 @@ export function IntradayChart({ data, baselineAverage, onHover }: IntradayChartP
     if (state?.activeTooltipIndex !== undefined) {
       const index = state.activeTooltipIndex;
       setActiveIndex(index);
-      const percentage = chartData.length > 1 
-        ? (index / (chartData.length - 1)) * 100 
-        : 100;
-      setScrubPercentage(percentage);
+      // Calculate percentage based on timestamp position on X-axis
+      if (chartData[index] && dayStart && dayEnd) {
+        const timestamp = chartData[index].timestamp;
+        const percentage = ((timestamp - dayStart) / (dayEnd - dayStart)) * 100;
+        setScrubPercentage(Math.min(100, Math.max(0, percentage)));
+      }
     }
     if (state?.activePayload?.[0]?.payload && onHover) {
       onHover(state.activePayload[0].payload as IntradayData);
     }
-  }, [onHover, chartData.length]);
+  }, [onHover, chartData, dayStart, dayEnd]);
 
   const handleMouseLeave = useCallback(() => {
     setActiveIndex(null);
@@ -142,17 +144,26 @@ export function IntradayChart({ data, baselineAverage, onHover }: IntradayChartP
   const updateFromClientX = useCallback((clientX: number) => {
     if (!chartWrapperRef.current || chartData.length === 0) return;
     const rect = chartWrapperRef.current.getBoundingClientRect();
-    const x = Math.min(Math.max(clientX - rect.left, 0), rect.width);
-    const ratio = rect.width > 0 ? x / rect.width : 0;
+    // Account for chart margins (left: 24, right: 24)
+    const chartLeft = 24;
+    const chartRight = 24;
+    const chartWidth = rect.width - chartLeft - chartRight;
+    const x = Math.min(Math.max(clientX - rect.left - chartLeft, 0), chartWidth);
+    const ratio = chartWidth > 0 ? x / chartWidth : 0;
     const index = Math.round(ratio * (chartData.length - 1));
     const clampedIndex = Math.min(Math.max(index, 0), chartData.length - 1);
 
     setActiveIndex(clampedIndex);
-    setScrubPercentage(chartData.length > 1 ? (clampedIndex / (chartData.length - 1)) * 100 : 100);
+    // Calculate percentage based on timestamp position on X-axis
+    if (chartData[clampedIndex] && dayStart && dayEnd) {
+      const timestamp = chartData[clampedIndex].timestamp;
+      const percentage = ((timestamp - dayStart) / (dayEnd - dayStart)) * 100;
+      setScrubPercentage(Math.min(100, Math.max(0, percentage)));
+    }
     if (onHover) {
       onHover(chartData[clampedIndex] as IntradayData);
     }
-  }, [chartData, onHover]);
+  }, [chartData, onHover, dayStart, dayEnd]);
 
   const handleScrubStart = useCallback((clientX: number, event?: React.SyntheticEvent) => {
     event?.preventDefault();

@@ -133,13 +133,19 @@ export function SwipeableLayout({ leftView, rightView, onSync, isSwipeDisabled }
             size="sm"
             onClick={handleManualSync}
             disabled={isSyncing}
-            className="disabled:opacity-100"
-            style={{ color: isSyncing ? '#FFFFFF' : '#595A5F' }}
+            className={cn(
+              "hover:bg-transparent hover:text-foreground focus:ring-0 focus-visible:ring-0 focus:outline-none focus-visible:outline-none",
+              isSyncing ? "text-foreground" : "text-muted-foreground"
+            )}
           >
             <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
           </Button>
           <Link to="/settings">
-            <Button variant="ghost" size="sm" className="font-mono" style={{ color: '#595A5F' }}>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="font-mono text-muted-foreground hover:bg-transparent hover:text-foreground focus:ring-0 focus-visible:ring-0 focus:outline-none focus-visible:outline-none"
+            >
               {APP_VERSION}
             </Button>
           </Link>

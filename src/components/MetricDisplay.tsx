@@ -123,9 +123,9 @@ export function MetricDisplay({
     displayValue = hoveredIntradayData.cumulativeAverage;
     // Calculate delta from baseline for this point
     effectiveDelta = hoveredIntradayData.cumulativeAverage - baselineAverage;
-    // Time difference: how much played vs what the average was
-    timeDifference = todayPlayTime - baselineAverage;
-    displayLabel = `${format(hoveredIntradayData.time, 'd MMM')} · ${hoveredIntradayData.timeStr} · ${formatPlayTime(todayPlayTime)}`;
+    // Time difference: how much played up to this point vs what the average was
+    timeDifference = hoveredIntradayData.cumulativeTodayHours - baselineAverage;
+    displayLabel = `${format(hoveredIntradayData.time, 'd MMM')} · ${hoveredIntradayData.timeStr} · ${formatPlayTime(hoveredIntradayData.cumulativeTodayHours)}`;
   } else if (isIntradayView) {
     displayValue = currentAverage;
     timeDifference = todayPlayTime - baselineAverage;
