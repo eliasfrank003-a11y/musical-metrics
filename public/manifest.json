@@ -1,11 +1,12 @@
 {
-  "name": "Piano Practice Tracker",
-  "short_name": "Piano",
-  "description": "Track your piano practice consistency",
-  "start_url": "/",
+  "name": "Musical Metrics",
+  "short_name": "Musical Metrics",
+  "description": "Practice tracking for musicians",
+  "start_url": "/musical-metrics/",
+  "scope": "/musical-metrics/",
   "display": "standalone",
-  "background_color": "#090b0e",
-  "theme_color": "#090b0e",
+  "background_color": "#000000",
+  "theme_color": "#09C651",
   "orientation": "portrait-primary",
   "icons": [
     {
