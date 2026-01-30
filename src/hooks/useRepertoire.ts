@@ -28,9 +28,13 @@ export function useRepertoire() {
       
       // Type assertion since DB returns text, but we know the constraints
       const typedData = (data || []).map(item => ({
-        ...item,
+        id: item.id,
         type: item.type as 'piece' | 'divider',
-        status: item.status as 'grey' | 'green' | 'red',
+        title: item.title,
+        started_at: (item as any).started_at || null,
+        divider_label: (item as any).divider_label || null,
+        status: (item.status as 'grey' | 'green' | 'red') || 'grey',
+        sort_order: item.sort_order,
       }));
       
       setItems(typedData);
@@ -169,9 +173,13 @@ export function useRepertoire() {
       if (error) throw error;
       
       const typedData = {
-        ...data,
+        id: data.id,
         type: data.type as 'piece' | 'divider',
-        status: data.status as 'grey' | 'green' | 'red',
+        title: data.title,
+        started_at: (data as any).started_at || null,
+        divider_label: (data as any).divider_label || null,
+        status: (data.status as 'grey' | 'green' | 'red') || 'grey',
+        sort_order: data.sort_order,
       };
       
       // Add to items and re-sort

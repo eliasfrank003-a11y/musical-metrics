@@ -70,6 +70,7 @@ export type Database = {
       }
       repertoire_items: {
         Row: {
+          composer: string | null
           created_at: string
           divider_label: string | null
           id: number
@@ -80,6 +81,7 @@ export type Database = {
           type: string
         }
         Insert: {
+          composer?: string | null
           created_at?: string
           divider_label?: string | null
           id?: number
@@ -90,6 +92,7 @@ export type Database = {
           type?: string
         }
         Update: {
+          composer?: string | null
           created_at?: string
           divider_label?: string | null
           id?: number
