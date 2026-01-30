@@ -99,17 +99,6 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
     });
   }
 
-  // Add current progress marker
-  timelineNodes.push({
-    id: 'current',
-    hours: currentHours,
-    title: `${Math.floor(currentHours).toLocaleString()} Hours`,
-    date: today,
-    average: null,
-    isFuture: false,
-    isCurrent: true,
-  });
-
   // Add achieved milestones
   milestones.forEach((m) => {
     if (m.achieved_at) {
@@ -204,6 +193,23 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
     }
   }
 
+  function formatTimeRemaining(date: Date | null): string {
+    if (!date) return '—';
+    const years = differenceInYears(date, today);
+    const months = differenceInMonths(date, today) % 12;
+    
+    if (years > 0 && months > 0) {
+      return `${years}y ${months}m`;
+    } else if (years > 0) {
+      return `${years}y`;
+    } else if (months > 0) {
+      return `${months}m`;
+    } else {
+      const days = differenceInDays(date, today);
+      return `${days}d`;
+    }
+  }
+
   const formatDate = (date: Date | null) => {
     if (!date) return '—';
     return format(date, 'MMM d, yyyy');
@@ -242,7 +248,7 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
                   backgroundColor: COLORS.muted,
                 };
               }
-              return { backgroundColor: COLORS.green };
+              return { backgroundColor: COLORS.muted };
             };
 
             const getNodeSize = () => {
@@ -252,17 +258,24 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
 
             const getTitleColor = () => {
               if (node.isCurrent) return COLORS.green;
-              if (node.isFuture) return node.is10k || node.is1k ? COLORS.purple : COLORS.yellow;
+              if (node.isFuture) {
+                if (node.is10k || node.is1k) return COLORS.purple;
+                // NEXT GOAL uses white color
+                return '#FFFFFF';
+              }
               if (node.isStart) return COLORS.muted;
               return 'inherit';
             };
 
             const getRightContent = () => {
               if (node.isFuture) {
-                return `Est. ${formatDate(node.date)}`;
+                const daysRemaining = node.id === 'goal-10k' ? daysTo10k : 
+                                      node.hours === next1k ? daysToNext1k : 
+                                      daysToNext100;
+                return daysRemaining !== Infinity ? String(daysRemaining) : '—';
               }
               if (node.isCurrent) {
-                return '← You are here';
+                return '';
               }
               if (node.isStart && node.date) {
                 return formatTimeSinceStart(node.date);
@@ -275,28 +288,42 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
 
             return (
               <div key={node.id} className="relative">
-                <div className="relative flex items-start gap-4 py-3">
+                <div className={`relative flex gap-4 ${node.isFuture ? 'items-center py-2' : 'items-start py-3'}`}>
                   {/* Node Dot */}
                   <div 
-                    className={`${getNodeSize()} rounded-full mt-1 flex-shrink-0 relative z-10`}
+                    className={`${getNodeSize()} rounded-full ${node.isFuture ? '' : 'mt-1'} flex-shrink-0 relative z-10`}
                     style={getNodeStyle()}
                   />
                   
                   {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-baseline justify-between gap-2">
-                      <div>
-                        {node.isCustom && node.description ? (
+                  <div className={`flex-1 min-w-0 ${node.isFuture ? 'px-4 py-3 rounded-xl flex items-center' : ''}`} style={node.isFuture ? { backgroundColor: 'rgba(89, 90, 95, 0.15)', border: `1px solid rgba(89, 90, 95, 0.3)` } : {}}>
+                    <div className={`flex ${node.isFuture ? 'items-center w-full' : 'items-baseline'} justify-between gap-4`}>
+                      <div className="flex-1">
+                        {node.isFuture && (
+                          <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: node.is10k || node.is1k ? COLORS.purple : COLORS.yellow, marginBottom: '4px' }}>
+                            {node.is10k ? 'ESTIMATED FINISH' : node.is1k ? 'NEXT 1K' : 'NEXT GOAL'}
+                          </p>
+                        )}
+                        {node.is10k ? (
+                          node.date && (
+                            <p 
+                              className="text-sm font-medium"
+                              style={{ color: '#FFFFFF' }}
+                            >
+                              {formatDate(node.date)}
+                            </p>
+                          )
+                        ) : node.isCustom && node.description ? (
                           <button
                             onClick={() => setExpandedNodeId(expandedNodeId === node.id ? null : node.id)}
-                            className="font-medium text-left hover:opacity-80 transition-opacity"
+                            className={`text-left hover:opacity-80 transition-opacity ${node.isFuture ? 'text-xl font-bold' : 'font-medium'}`}
                             style={{ color: getTitleColor() }}
                           >
                             {node.title}
                           </button>
                         ) : (
                           <p 
-                            className="font-medium"
+                            className={node.isFuture ? 'text-xl font-bold leading-none' : 'font-medium'}
                             style={{ color: getTitleColor() }}
                           >
                             {node.title}
@@ -311,12 +338,49 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
                           </p>
                         )}
                       </div>
-                      <p 
-                        className="text-xs text-right flex-shrink-0"
-                        style={{ color: node.isCurrent ? COLORS.green : COLORS.muted }}
-                      >
-                        {getRightContent()}
-                      </p>
+                      <div className={`${node.isFuture ? 'flex flex-col items-end justify-center' : 'text-right flex-shrink-0'}`}>
+                        {node.isFuture ? (
+                          node.is10k ? (
+                            <>
+                              <p 
+                                className="text-[10px] font-medium uppercase tracking-wide"
+                                style={{ color: COLORS.muted }}
+                              >
+                                REMAINING {formatTimeRemaining(node.date)}
+                              </p>
+                              <p 
+                                className="text-[10px] font-medium uppercase tracking-wide mt-0.5"
+                                style={{ color: COLORS.muted }}
+                              >
+                                TOTAL {formatTimeSinceStart(startDate)} {formatTimeRemaining(node.date)}
+                              </p>
+                            </>
+                          ) : (
+                            <>
+                              <p 
+                                className="text-3xl font-bold leading-none"
+                                style={{ color: node.is1k ? COLORS.purple : COLORS.yellow }}
+                              >
+                                {getRightContent()}
+                              </p>
+                              {node.date && (
+                                <p 
+                                  className="text-[10px] mt-1 uppercase tracking-wide"
+                                  style={{ color: COLORS.muted }}
+                                >
+                                  {formatDate(node.date)}
+                                </p>
+                            )}
+                          </>
+                        ) : (
+                          <p 
+                            className="text-xs"
+                            style={{ color: node.isCurrent ? COLORS.green : COLORS.muted }}
+                          >
+                            {getRightContent()}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
