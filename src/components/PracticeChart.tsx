@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useState, useRef } from 'react';
+import { useMemo, useCallback, useState, useRef, useEffect } from 'react';
 import {
   LineChart,
   Line,
@@ -145,13 +145,47 @@ export function PracticeChart({ data, timeRange, onHover }: PracticeChartProps) 
     updateFromClientX(clientX);
   }, [isScrubbing, updateFromClientX]);
 
-  const handleScrubEnd = useCallback((event?: React.SyntheticEvent) => {
-    event?.preventDefault();
-    event?.stopPropagation();
+  const handleScrubEnd = useCallback((event?: React.SyntheticEvent | Event) => {
+    if (event && 'preventDefault' in event) event.preventDefault();
+    if (event && 'stopPropagation' in event) event.stopPropagation();
     setIsScrubbing(false);
     handleMouseLeave();
   }, [handleMouseLeave]);
 
+  // Attach global listeners when scrubbing to track finger anywhere on screen
+  useEffect(() => {
+    if (!isScrubbing) return;
+
+    const handleGlobalMove = (e: TouchEvent | PointerEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const clientX = 'touches' in e ? e.touches[0]?.clientX : e.clientX;
+      if (clientX !== undefined) updateFromClientX(clientX);
+    };
+
+    const handleGlobalEnd = (e: TouchEvent | PointerEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsScrubbing(false);
+      handleMouseLeave();
+    };
+
+    window.addEventListener('touchmove', handleGlobalMove, { passive: false });
+    window.addEventListener('touchend', handleGlobalEnd, { passive: false });
+    window.addEventListener('touchcancel', handleGlobalEnd, { passive: false });
+    window.addEventListener('pointermove', handleGlobalMove, { passive: false });
+    window.addEventListener('pointerup', handleGlobalEnd, { passive: false });
+    window.addEventListener('pointercancel', handleGlobalEnd, { passive: false });
+
+    return () => {
+      window.removeEventListener('touchmove', handleGlobalMove);
+      window.removeEventListener('touchend', handleGlobalEnd);
+      window.removeEventListener('touchcancel', handleGlobalEnd);
+      window.removeEventListener('pointermove', handleGlobalMove);
+      window.removeEventListener('pointerup', handleGlobalEnd);
+      window.removeEventListener('pointercancel', handleGlobalEnd);
+    };
+  }, [isScrubbing, updateFromClientX, handleMouseLeave]);
 
   if (data.length === 0) {
     return (
@@ -294,14 +328,7 @@ export function PracticeChart({ data, timeRange, onHover }: PracticeChartProps) 
         className="absolute left-0 right-0 top-[-16px] bottom-[-24px] z-20"
         style={{ pointerEvents: isCoarsePointer || isScrubbing ? 'auto' : 'none' }}
         onPointerDown={(event) => handleScrubStart(event.clientX, event)}
-        onPointerMove={(event) => handleScrubMove(event.clientX, event)}
-        onPointerUp={(event) => handleScrubEnd(event)}
-        onPointerCancel={(event) => handleScrubEnd(event)}
-        onPointerLeave={(event) => handleScrubEnd(event)}
         onTouchStartCapture={(event) => handleScrubStart(event.touches[0].clientX, event)}
-        onTouchMoveCapture={(event) => handleScrubMove(event.touches[0].clientX, event)}
-        onTouchEndCapture={(event) => handleScrubEnd(event)}
-        onTouchCancelCapture={(event) => handleScrubEnd(event)}
       />
       <ResponsiveContainer width="100%" height="100%">
         <LineChart 
