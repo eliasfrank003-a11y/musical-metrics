@@ -87,12 +87,8 @@ export function RepertoireItem({
             <GripVertical className="h-4 w-4" />
           </div>
         )}
-        <div 
-          className="flex-1 h-px"
-          style={{ backgroundColor: COLORS.divider }}
-        />
         {isEditing ? (
-          <div className="flex items-center gap-2">
+          <>
             <Input
               value={editTitle}
               onChange={(e) => setEditTitle(e.target.value)}
@@ -106,19 +102,30 @@ export function RepertoireItem({
             <Button size="icon" variant="ghost" className="h-6 w-6" onClick={handleCancelEdit}>
               <X className="h-3 w-3" />
             </Button>
-          </div>
+          </>
         ) : hasText ? (
-          <span 
-            className="text-xs font-medium px-2"
-            style={{ color: COLORS.muted }}
-          >
-            {item.title}
-          </span>
-        ) : null}
-        <div 
-          className="flex-1 h-px"
-          style={{ backgroundColor: COLORS.divider }}
-        />
+          <>
+            <div 
+              className="flex-1 h-px"
+              style={{ backgroundColor: COLORS.divider }}
+            />
+            <span 
+              className="text-xs font-medium px-2"
+              style={{ color: COLORS.muted }}
+            >
+              {item.title}
+            </span>
+            <div 
+              className="flex-1 h-px"
+              style={{ backgroundColor: COLORS.divider }}
+            />
+          </>
+        ) : (
+          <div 
+            className="flex-1 h-px"
+            style={{ backgroundColor: COLORS.divider }}
+          />
+        )}
         {isEditMode && !isEditing && (
           <div className="flex items-center gap-1">
             <Button 

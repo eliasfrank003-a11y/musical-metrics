@@ -16,7 +16,7 @@ interface RepertoireManagerProps {
   onStatusChange: (id: number, newStatus: 'grey' | 'green' | 'red') => void;
   onEdit: (id: number, title: string, composer: string | null) => void;
   onDelete: (id: number) => void;
-  onAdd: (type: 'piece' | 'divider', title: string, composer?: string) => void;
+  onAdd: (type: 'piece' | 'divider', title: string, composer?: string, positionAfterId?: number | null) => void;
   onReorder: (draggedId: number, targetId: number) => void;
   isLoading?: boolean;
 }
@@ -42,6 +42,7 @@ export function RepertoireManager({
   const [newTitle, setNewTitle] = useState('');
   const [newComposer, setNewComposer] = useState('');
   const [draggedId, setDraggedId] = useState<number | null>(null);
+  const [selectedPositionId, setSelectedPositionId] = useState<number | null>(null);
 
   const handleDragStart = (e: React.DragEvent, id: number) => {
     setDraggedId(id);
@@ -81,9 +82,10 @@ export function RepertoireManager({
 
   const handleAddDivider = () => {
     // Allow empty dividers
-    onAdd('divider', newTitle.trim());
+    onAdd('divider', newTitle.trim(), undefined, selectedPositionId);
     setNewTitle('');
     setIsAddingDivider(false);
+    setSelectedPositionId(null);
   };
 
   return (
@@ -164,18 +166,59 @@ export function RepertoireManager({
 
       {/* Add New Divider Form */}
       {isAddingDivider && (
-        <div className="px-4 py-3 border-b border-border/30 space-y-2 max-w-md mx-auto w-full">
+        <div className="px-4 py-3 border-b border-border/30 space-y-3 max-w-md mx-auto w-full">
           <Input
             placeholder="Divider text (optional)"
             value={newTitle}
             onChange={(e) => setNewTitle(e.target.value)}
             autoFocus
           />
+          <div className="space-y-2">
+            <label className="text-sm text-muted-foreground">
+              Add divider after:
+            </label>
+            <div className="flex flex-col gap-2 max-h-48 overflow-y-auto border rounded-md p-2 bg-muted/30">
+              <button
+                onClick={() => setSelectedPositionId(null)}
+                className={cn(
+                  "text-left px-3 py-2 rounded-md text-sm transition-colors",
+                  selectedPositionId === null
+                    ? "bg-primary text-primary-foreground"
+                    : "hover:bg-muted"
+                )}
+              >
+                At the beginning
+              </button>
+              {items.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => setSelectedPositionId(item.id)}
+                  className={cn(
+                    "text-left px-3 py-2 rounded-md text-sm transition-colors truncate",
+                    selectedPositionId === item.id
+                      ? "bg-primary text-primary-foreground"
+                      : "hover:bg-muted",
+                    item.type === 'divider' && "italic text-muted-foreground"
+                  )}
+                  title={item.title || "(empty divider)"}
+                >
+                  {item.type === 'piece' ? '♪' : '─'} {item.title || "(empty divider)"}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="flex gap-2">
             <Button size="sm" onClick={handleAddDivider}>
               Add Divider
             </Button>
-            <Button size="sm" variant="ghost" onClick={() => setIsAddingDivider(false)}>
+            <Button 
+              size="sm" 
+              variant="ghost" 
+              onClick={() => {
+                setIsAddingDivider(false);
+                setSelectedPositionId(null);
+              }}
+            >
               Cancel
             </Button>
           </div>

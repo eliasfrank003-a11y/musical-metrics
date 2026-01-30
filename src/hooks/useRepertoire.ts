@@ -22,7 +22,7 @@ export function useRepertoire() {
       const { data, error } = await supabase
         .from('repertoire_items')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('sort_order', { ascending: false });
       if (error) throw error;
       
       // Type assertion since DB returns text, but we know the constraints
@@ -116,13 +116,35 @@ export function useRepertoire() {
   const addItem = useCallback(async (
     type: 'piece' | 'divider',
     title: string,
-    composer?: string
+    composer?: string,
+    positionAfterId?: number | null
   ) => {
     try {
-      // Get next sort order
-      const maxOrder = items.length > 0 
-        ? Math.max(...items.map(i => i.sort_order)) 
-        : -1;
+      // Determine sort_order based on position
+      let newSortOrder: number;
+      
+      if (positionAfterId === null || positionAfterId === undefined) {
+        // Add at the beginning
+        newSortOrder = (Math.max(...items.map(i => i.sort_order), 0) || 0) + 1;
+      } else {
+        // Add after the specified item
+        const positionIndex = items.findIndex(i => i.id === positionAfterId);
+        if (positionIndex === -1) {
+          throw new Error('Position item not found');
+        }
+        
+        const positionItem = items[positionIndex];
+        
+        // Find the next item in the display order (if it exists)
+        if (positionIndex + 1 < items.length) {
+          // Insert between the position item and the next item
+          const nextItem = items[positionIndex + 1];
+          newSortOrder = (positionItem.sort_order + nextItem.sort_order) / 2;
+        } else {
+          // Position item is the last item, so add after it
+          newSortOrder = positionItem.sort_order - 1;
+        }
+      }
 
       const { data, error } = await supabase
         .from('repertoire_items')
@@ -131,7 +153,7 @@ export function useRepertoire() {
           title,
           composer: composer || null,
           status: 'grey',
-          sort_order: maxOrder + 1,
+          sort_order: newSortOrder,
         })
         .select()
         .single();
@@ -144,7 +166,11 @@ export function useRepertoire() {
         status: data.status as 'grey' | 'green' | 'red',
       };
       
-      setItems(prev => [...prev, typedData]);
+      // Add to items and re-sort
+      setItems(prev => {
+        const updated = [...prev, typedData];
+        return updated.sort((a, b) => b.sort_order - a.sort_order);
+      });
     } catch (error) {
       console.error('[Repertoire] Error adding item:', error);
       toast({
