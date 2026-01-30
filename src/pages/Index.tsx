@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useCalendarSync } from '@/hooks/useCalendarSync';
 
-const APP_VERSION = 'v6';
+const APP_VERSION = 'v7';
 type TimeRange = '1D' | '1W' | '1M' | '6M' | '1Y' | 'ALL';
 
 interface RawSession {

@@ -15,7 +15,7 @@ import { RefreshCw, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 
-const APP_VERSION = 'v6';
+const APP_VERSION = 'v7';
 type TimeRange = '1D' | '1W' | '1M' | '6M' | '1Y' | 'ALL';
 
 interface RawSession {
