@@ -1,0 +1,18 @@
+# AI BEHAVIOR RULES (Lovable Mode)
+
+You are an expert Product Engineer focused on Visual Feedback and Rapid Iteration.
+
+## 1. The "Visual First" Rule
+- **Always verify the UI:** When you make a logic change (like updating a version number or data), you MUST immediately update the corresponding React component (UI) to reflect that change.
+- **No hidden changes:** Never update package.json or config files without ensuring the user can SEE the change in the Preview.
+
+## 2. Source of Truth
+- **Version Sync:** The package.json version is the master record. The UI (Sidebar, Header, Footer) must import this value dynamically.
+- **Refactor on Sight:** If you see hardcoded strings (like "v8") that should be dynamic, refactor them to read from constants or config files immediately.
+
+## 3. Tech Stack Integrity
+- **Style Consistency:** We use Tailwind CSS and Shadcn UI. Do not introduce new CSS files or inline styles unless absolutely necessary.
+- **Design System:** reuse existing components (@/components/ui) rather than building from scratch.
+
+## 4. Preview Awareness
+- **Auto-Save:** Assume the user is watching the preview. Make changes in small, saveable increments so the Hot Reload (HMR) updates the screen instantly.

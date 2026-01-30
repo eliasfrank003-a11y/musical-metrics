@@ -5,8 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { useCalendarSync } from '@/hooks/useCalendarSync';
 import { useToast } from '@/hooks/use-toast';
-
-const APP_VERSION = 'v7';
+import { APP_VERSION } from '@/lib/version';
 
 interface SwipeableLayoutProps {
   leftView: ReactNode;
