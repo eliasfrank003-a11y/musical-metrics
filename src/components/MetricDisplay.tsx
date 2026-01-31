@@ -142,8 +142,10 @@ export function MetricDisplay({
   const deltaIsPositive = effectiveDelta >= 0;
   const timeDiffIsPositive = timeDifference !== null ? timeDifference >= 0 : true;
 
-  // Show progress bar when mirror timer is running (on any view, when not hovering)
-  const showMirrorProgress = mirrorTimeSeconds > 0 && !hoveredData && !hoveredIntradayData;
+  // Show progress bar when mirror timer is running AND today's play time >= baseline average
+  // This means the user has "caught up" and is now adding to their average
+  const hasMetDailyGoal = todayPlayTime >= baselineAverage;
+  const showMirrorProgress = mirrorTimeSeconds > 0 && hasMetDailyGoal && !hoveredData && !hoveredIntradayData;
 
   return (
     <div className="flex flex-col items-start py-4">

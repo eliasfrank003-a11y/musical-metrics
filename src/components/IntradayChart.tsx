@@ -15,6 +15,7 @@ interface IntradayChartProps {
   data: IntradayData[];
   baselineAverage: number;
   onHover?: (data: IntradayData | null) => void;
+  isMirrorActive?: boolean;
 }
 
 // Trade Republic exact colors
@@ -26,7 +27,7 @@ const COLORS = {
   white: '#FFFFFF',
 };
 
-export function IntradayChart({ data, baselineAverage, onHover }: IntradayChartProps) {
+export function IntradayChart({ data, baselineAverage, onHover, isMirrorActive = false }: IntradayChartProps) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [isScrubbing, setIsScrubbing] = useState(false);
   const chartWrapperRef = useRef<HTMLDivElement>(null);
@@ -349,7 +350,25 @@ export function IntradayChart({ data, baselineAverage, onHover }: IntradayChartP
             dataKey="averageHours"
             stroke={activeIndex !== null ? `url(#${scrubGradientId})` : lineColor}
             strokeWidth={2.5}
-            dot={(props: any) => (props.index === activeIndex ? renderActiveDot(props) : null)}
+            dot={(props: any) => {
+              // Show active dot when scrubbing
+              if (props.index === activeIndex) {
+                return renderActiveDot(props);
+              }
+              // Show dot on last point when mirror is active (no pulse)
+              if (isMirrorActive && props.index === chartData.length - 1 && activeIndex === null) {
+                const { cx, cy, payload } = props;
+                const isAbove = payload.averageHours >= baselineAverage;
+                const dotColor = isAbove ? COLORS.positive : COLORS.negative;
+                return (
+                  <g>
+                    <circle cx={cx} cy={cy} r={10} fill={dotColor} opacity={0.12} />
+                    <circle cx={cx} cy={cy} r={5} fill={dotColor} />
+                  </g>
+                );
+              }
+              return null;
+            }}
             activeDot={false}
             isAnimationActive={false}
           />

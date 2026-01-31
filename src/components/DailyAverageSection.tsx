@@ -132,12 +132,19 @@ export function DailyAverageSection({ onAnalyticsUpdate, mirrorTimeSeconds = 0 }
     const adjustedAvg = analytics.currentAverage + (mirrorTimeHours / analytics.totalDays);
     
     // Calculate progress toward next second in the average
+    // The display uses Math.round(), so we need to track when the rounded value changes
     // Total seconds with mirror time
     const totalSecondsWithMirror = (analytics.totalHours * 3600) + mirrorTimeSeconds;
     // Exact average in seconds (e.g., 5234.67)
     const exactAverageSeconds = totalSecondsWithMirror / analytics.totalDays;
-    // Fractional part = progress toward next second (e.g., 0.67 = 67%)
-    const progressPercent = (exactAverageSeconds - Math.floor(exactAverageSeconds)) * 100;
+    // Current displayed value (rounded)
+    const displayedSeconds = Math.round(exactAverageSeconds);
+    // The threshold where rounding changes is at X.5
+    // Progress from (displayedSeconds - 0.5) to (displayedSeconds + 0.5)
+    const lowerBound = displayedSeconds - 0.5;
+    const upperBound = displayedSeconds + 0.5;
+    // Progress within this 1-second window (0% at lower bound, 100% at upper bound)
+    const progressPercent = ((exactAverageSeconds - lowerBound) / (upperBound - lowerBound)) * 100;
     
     // For 1D view, calculate intraday data with plateau-slope model
     if (timeRange === '1D') {
@@ -160,17 +167,23 @@ export function DailyAverageSection({ onAnalyticsUpdate, mirrorTimeSeconds = 0 }
       const todayPlayTimeHours = todaySessions.reduce((sum, s) => sum + s.duration_seconds / 3600, 0) + mirrorTimeHours;
       
       // Add virtual point for mirror time if timer is running
+      // Only update graph every minute (round mirror time down to full minutes)
       let augmentedIntraday = [...intraday];
-      if (mirrorTimeHours > 0 && intraday.length > 0) {
+      const mirrorMinutes = Math.floor(mirrorTimeSeconds / 60);
+      if (mirrorMinutes > 0 && intraday.length > 0) {
         const now = new Date();
         const lastPoint = intraday[intraday.length - 1];
         // Only add if current time is after the last point
         if (now.getTime() > lastPoint.time.getTime()) {
+          // Use floored minutes for smoother updates
+          const mirrorHoursFloored = mirrorMinutes / 60;
+          const avgWithMirror = lastPoint.cumulativeAverage + (mirrorHoursFloored / analytics.totalDays);
+          const todayWithMirror = todaySessions.reduce((sum, s) => sum + s.duration_seconds / 3600, 0) + mirrorHoursFloored;
           augmentedIntraday.push({
             time: now,
             timeStr: `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`,
-            cumulativeAverage: intradayAdjustedAvg,
-            cumulativeTodayHours: todayPlayTimeHours,
+            cumulativeAverage: avgWithMirror,
+            cumulativeTodayHours: todayWithMirror,
           });
         }
       }
@@ -304,6 +317,7 @@ export function DailyAverageSection({ onAnalyticsUpdate, mirrorTimeSeconds = 0 }
             data={intradayData}
             baselineAverage={baselineAverage}
             onHover={setHoveredIntradayData}
+            isMirrorActive={mirrorTimeSeconds > 0}
           />
         ) : (
           <PracticeChart
