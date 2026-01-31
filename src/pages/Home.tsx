@@ -14,6 +14,7 @@ export function Home() {
   const [analytics, setAnalytics] = useState<AnalyticsResult | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [isRepertoireEditing, setIsRepertoireEditing] = useState(false);
+  const [mirrorTimeSeconds, setMirrorTimeSeconds] = useState(0);
 
   // Initialize seeding (runs once if tables are empty)
   useDataSeeding({
@@ -26,11 +27,15 @@ export function Home() {
     setRefreshKey(prev => prev + 1);
   }, []);
 
+  const handleMirrorTimeChange = useCallback((seconds: number) => {
+    setMirrorTimeSeconds(seconds);
+  }, []);
+
   // Time view content
   const timeView = (
     <>
-      <DailyAverageSection key={refreshKey} onAnalyticsUpdate={setAnalytics} />
-      <TenKOverview analytics={analytics} />
+      <DailyAverageSection key={refreshKey} onAnalyticsUpdate={setAnalytics} mirrorTimeSeconds={mirrorTimeSeconds} />
+      <TenKOverview analytics={analytics} mirrorTimeSeconds={mirrorTimeSeconds} />
     </>
   );
 
@@ -39,6 +44,7 @@ export function Home() {
       leftView={timeView}
       rightView={<Repertoire onEditingStateChange={setIsRepertoireEditing} />}
       onSync={handleSync}
+      onMirrorTimeChange={handleMirrorTimeChange}
       isSwipeDisabled={isRepertoireEditing}
     />
   );

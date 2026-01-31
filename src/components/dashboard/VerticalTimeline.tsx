@@ -210,6 +210,24 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
     }
   }
 
+  function formatTotalTime(targetDate: Date | null): string {
+    if (!targetDate) return '—';
+    // Total time = time from startDate to targetDate
+    const years = differenceInYears(targetDate, startDate);
+    const months = differenceInMonths(targetDate, startDate) % 12;
+    
+    if (years > 0 && months > 0) {
+      return `${years}y ${months}m`;
+    } else if (years > 0) {
+      return `${years}y`;
+    } else if (months > 0) {
+      return `${months}m`;
+    } else {
+      const days = differenceInDays(targetDate, startDate);
+      return `${days}d`;
+    }
+  }
+
   const formatDate = (date: Date | null) => {
     if (!date) return '—';
     return format(date, 'MMM d, yyyy');
@@ -219,8 +237,56 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
   const firstAchievedIndex = timelineNodes.findIndex(node => !node.isFuture);
   const hasAchievedNodes = firstAchievedIndex !== -1;
 
+  // Progress percentage towards 10k
+  const progressPercentage = Math.min(100, (currentHours / 10000) * 100);
+  
+  // Calculate color from red (0%) to green (100%)
+  // Red: #FD4136, Green: #09C651
+  const getProgressColor = (percentage: number) => {
+    const red = { r: 253, g: 65, b: 54 };
+    const green = { r: 9, g: 198, b: 81 };
+    const ratio = percentage / 100;
+    const r = Math.round(red.r + (green.r - red.r) * ratio);
+    const g = Math.round(red.g + (green.g - red.g) * ratio);
+    const b = Math.round(red.b + (green.b - red.b) * ratio);
+    return `rgb(${r}, ${g}, ${b})`;
+  };
+
   return (
     <div className="px-4 py-6">
+      {/* Progress Bar */}
+      <div className="mb-6">
+        <div 
+          className="relative w-full h-3 rounded-full overflow-hidden"
+          style={{ backgroundColor: 'rgba(89, 90, 95, 0.3)' }}
+        >
+          <div 
+            className="absolute left-0 top-0 h-full rounded-full transition-all duration-500"
+            style={{ 
+              width: `${progressPercentage}%`,
+              backgroundColor: getProgressColor(progressPercentage),
+            }}
+          />
+          {/* 10% divider lines - rendered on top of progress fill */}
+          {[10, 20, 30, 40, 50, 60, 70, 80, 90].map((percent) => (
+            <div
+              key={percent}
+              className="absolute top-0 h-full w-px z-10"
+              style={{ 
+                left: `${percent}%`,
+                backgroundColor: 'rgba(255, 255, 255, 0.25)',
+              }}
+            />
+          ))}
+          <span 
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-semibold z-20"
+            style={{ color: COLORS.muted }}
+          >
+            {progressPercentage.toFixed(1)}%
+          </span>
+        </div>
+      </div>
+
       <div className="relative ml-[7px]">
         {/* Single continuous vertical line - starts at first milestone dot and ends at last */}
         <div 
@@ -349,13 +415,7 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
                                 className="text-[10px] font-medium uppercase tracking-wide"
                                 style={{ color: COLORS.muted }}
                               >
-                                REMAINING {formatTimeRemaining(node.date)}
-                              </p>
-                              <p 
-                                className="text-[10px] font-medium uppercase tracking-wide mt-0.5"
-                                style={{ color: COLORS.muted }}
-                              >
-                                TOTAL {formatTimeSinceStart(startDate)} {formatTimeRemaining(node.date)}
+                                TOTAL {formatTotalTime(node.date)} • REMAINING {formatTimeRemaining(node.date)}
                               </p>
                             </>
                           ) : (

@@ -28,7 +28,6 @@ const COLORS = {
 
 export function IntradayChart({ data, baselineAverage, onHover }: IntradayChartProps) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
-  const [scrubPercentage, setScrubPercentage] = useState<number>(100);
   const [isScrubbing, setIsScrubbing] = useState(false);
   const chartWrapperRef = useRef<HTMLDivElement>(null);
   const isCoarsePointer = useMemo(
@@ -121,21 +120,14 @@ export function IntradayChart({ data, baselineAverage, onHover }: IntradayChartP
     if (state?.activeTooltipIndex !== undefined) {
       const index = state.activeTooltipIndex;
       setActiveIndex(index);
-      // Calculate percentage based on timestamp position on X-axis
-      if (chartData[index] && dayStart && dayEnd) {
-        const timestamp = chartData[index].timestamp;
-        const percentage = ((timestamp - dayStart) / (dayEnd - dayStart)) * 100;
-        setScrubPercentage(Math.min(100, Math.max(0, percentage)));
-      }
     }
     if (state?.activePayload?.[0]?.payload && onHover) {
       onHover(state.activePayload[0].payload as IntradayData);
     }
-  }, [onHover, chartData, dayStart, dayEnd]);
+  }, [onHover]);
 
   const handleMouseLeave = useCallback(() => {
     setActiveIndex(null);
-    setScrubPercentage(100);
     if (onHover) {
       onHover(null);
     }
@@ -154,16 +146,10 @@ export function IntradayChart({ data, baselineAverage, onHover }: IntradayChartP
     const clampedIndex = Math.min(Math.max(index, 0), chartData.length - 1);
 
     setActiveIndex(clampedIndex);
-    // Calculate percentage based on timestamp position on X-axis
-    if (chartData[clampedIndex] && dayStart && dayEnd) {
-      const timestamp = chartData[clampedIndex].timestamp;
-      const percentage = ((timestamp - dayStart) / (dayEnd - dayStart)) * 100;
-      setScrubPercentage(Math.min(100, Math.max(0, percentage)));
-    }
     if (onHover) {
       onHover(chartData[clampedIndex] as IntradayData);
     }
-  }, [chartData, onHover, dayStart, dayEnd]);
+  }, [chartData, onHover]);
 
   const handleScrubStart = useCallback((clientX: number, event?: React.SyntheticEvent) => {
     event?.preventDefault();
@@ -274,6 +260,22 @@ export function IntradayChart({ data, baselineAverage, onHover }: IntradayChartP
 
   // Generate unique gradient ID to avoid conflicts
   const scrubGradientId = `scrubGradient-intraday-${Math.random().toString(36).substr(2, 9)}`;
+
+  // Calculate gradient percentage based on active point's position within the LINE (not full X-axis)
+  // The gradient applies to the line path, which spans from first to last data point
+  const scrubPercentage = useMemo(() => {
+    if (activeIndex === null || chartData.length < 2) return 100;
+    
+    const firstTimestamp = chartData[0].timestamp;
+    const lastTimestamp = chartData[chartData.length - 1].timestamp;
+    const activeTimestamp = chartData[activeIndex]?.timestamp;
+    
+    if (!activeTimestamp || firstTimestamp === lastTimestamp) return 100;
+    
+    // Calculate as percentage of the line's span (first to last data point)
+    const percentage = ((activeTimestamp - firstTimestamp) / (lastTimestamp - firstTimestamp)) * 100;
+    return Math.min(100, Math.max(0, percentage));
+  }, [activeIndex, chartData]);
 
   return (
     <div

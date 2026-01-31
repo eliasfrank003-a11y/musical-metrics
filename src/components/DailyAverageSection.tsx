@@ -17,6 +17,7 @@ type TimeRange = '1D' | '1W' | '1M' | '6M' | '1Y' | 'ALL';
 
 interface DailyAverageSectionProps {
   onAnalyticsUpdate?: (analytics: AnalyticsResult | null) => void;
+  mirrorTimeSeconds?: number;
 }
 
 interface RawSession {
@@ -24,7 +25,7 @@ interface RawSession {
   duration_seconds: number;
 }
 
-export function DailyAverageSection({ onAnalyticsUpdate }: DailyAverageSectionProps) {
+export function DailyAverageSection({ onAnalyticsUpdate, mirrorTimeSeconds = 0 }: DailyAverageSectionProps) {
   const [analytics, setAnalytics] = useState<AnalyticsResult | null>(null);
   const [rawSessions, setRawSessions] = useState<RawSession[]>([]);
   const [timeRange, setTimeRange] = useState<TimeRange>('1M');
@@ -117,19 +118,30 @@ export function DailyAverageSection({ onAnalyticsUpdate }: DailyAverageSectionPr
     };
   }, []);
 
-  const { filteredData, delta, intradayData, baselineAverage, todayPlayTime } = useMemo(() => {
+  const { filteredData, delta, intradayData, baselineAverage, todayPlayTime, adjustedCurrentAverage, adjustedTotalHours } = useMemo(() => {
     if (!analytics) {
-      return { filteredData: [], delta: { value: 0, percentage: 0 }, intradayData: [], baselineAverage: 0, todayPlayTime: 0 };
+      return { filteredData: [], delta: { value: 0, percentage: 0 }, intradayData: [], baselineAverage: 0, todayPlayTime: 0, adjustedCurrentAverage: 0, adjustedTotalHours: 0 };
     }
+    
+    // Convert mirror time to hours
+    const mirrorTimeHours = mirrorTimeSeconds / 3600;
+    
+    // Adjusted total hours (includes mirror time)
+    const adjustedTotal = analytics.totalHours + mirrorTimeHours;
+    // Adjusted current average (includes mirror time distributed over total days)
+    const adjustedAvg = analytics.currentAverage + (mirrorTimeHours / analytics.totalDays);
     
     // For 1D view, calculate intraday data with plateau-slope model
     if (timeRange === '1D') {
       const { intradayData: intraday, baselineAverage: baseline } = calculateIntradayData(analytics.dailyData, rawSessions);
-      // Delta is the difference between current average and yesterday's baseline
-      const currentAvg = intraday.length > 0 ? intraday[intraday.length - 1].cumulativeAverage : analytics.currentAverage;
-      const intradayDelta = currentAvg - baseline;
       
-      // Calculate today's total play time from raw sessions
+      // Add mirror time to the current average for display
+      const lastIntraday = intraday.length > 0 ? intraday[intraday.length - 1] : null;
+      const currentAvg = lastIntraday ? lastIntraday.cumulativeAverage : analytics.currentAverage;
+      const intradayAdjustedAvg = currentAvg + (mirrorTimeHours / analytics.totalDays);
+      const intradayDelta = intradayAdjustedAvg - baseline;
+      
+      // Calculate today's total play time from raw sessions + mirror time
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const todayPlayTimeHours = rawSessions
@@ -138,14 +150,16 @@ export function DailyAverageSection({ onAnalyticsUpdate }: DailyAverageSectionPr
           sessionDate.setHours(0, 0, 0, 0);
           return sessionDate.getTime() === today.getTime();
         })
-        .reduce((sum, s) => sum + s.duration_seconds / 3600, 0);
+        .reduce((sum, s) => sum + s.duration_seconds / 3600, 0) + mirrorTimeHours;
       
       return { 
         filteredData: [], 
         delta: { value: intradayDelta, percentage: 0 }, 
         intradayData: intraday,
         baselineAverage: baseline,
-        todayPlayTime: todayPlayTimeHours
+        todayPlayTime: todayPlayTimeHours,
+        adjustedCurrentAverage: intradayAdjustedAvg,
+        adjustedTotalHours: adjustedTotal
       };
     }
     
@@ -153,9 +167,22 @@ export function DailyAverageSection({ onAnalyticsUpdate }: DailyAverageSectionPr
     if (timeRange === '6M' || timeRange === '1Y' || timeRange === 'ALL') {
       data = downsampleData(data, 100);
     }
-    const delta = calculateDelta(data);
-    return { filteredData: data, delta, intradayData: [], baselineAverage: 0, todayPlayTime: 0 };
-  }, [analytics, timeRange, rawSessions]);
+    const baseDelta = calculateDelta(data);
+    // Add mirror time contribution to the delta
+    const adjustedDelta = {
+      value: baseDelta.value + (mirrorTimeHours / analytics.totalDays),
+      percentage: baseDelta.percentage
+    };
+    return { 
+      filteredData: data, 
+      delta: adjustedDelta, 
+      intradayData: [], 
+      baselineAverage: 0, 
+      todayPlayTime: 0,
+      adjustedCurrentAverage: adjustedAvg,
+      adjustedTotalHours: adjustedTotal
+    };
+  }, [analytics, timeRange, rawSessions, mirrorTimeSeconds]);
 
   const handleManualSync = async () => {
     try {
@@ -207,7 +234,7 @@ export function DailyAverageSection({ onAnalyticsUpdate }: DailyAverageSectionPr
     <div className="px-4 pt-2 pb-6">
       {/* Metric Display */}
       <MetricDisplay
-        currentAverage={analytics.currentAverage}
+        currentAverage={adjustedCurrentAverage}
         delta={delta.value}
         isPositive={delta.value >= 0}
         hoveredData={hoveredData}
@@ -242,7 +269,7 @@ export function DailyAverageSection({ onAnalyticsUpdate }: DailyAverageSectionPr
       {/* Stats Footer */}
       <div className="mt-4">
         <StatsFooter
-          totalHours={analytics.totalHours}
+          totalHours={adjustedTotalHours}
           totalDays={analytics.totalDays}
         />
       </div>

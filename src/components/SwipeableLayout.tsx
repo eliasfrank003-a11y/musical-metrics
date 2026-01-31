@@ -1,28 +1,144 @@
-import { useState, useRef, ReactNode } from 'react';
+import { useState, useRef, useEffect, useCallback, ReactNode } from 'react';
 import { cn } from '@/lib/utils';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { useCalendarSync } from '@/hooks/useCalendarSync';
 import { useToast } from '@/hooks/use-toast';
 import { APP_VERSION } from '@/lib/version';
+import { supabase } from '@/integrations/supabase/client';
 
 interface SwipeableLayoutProps {
   leftView: ReactNode;
   rightView: ReactNode;
   onSync?: () => Promise<void>;
+  onMirrorTimeChange?: (seconds: number) => void;
   isSwipeDisabled?: boolean;
 }
 
-export function SwipeableLayout({ leftView, rightView, onSync, isSwipeDisabled }: SwipeableLayoutProps) {
+export function SwipeableLayout({ leftView, rightView, onSync, onMirrorTimeChange, isSwipeDisabled }: SwipeableLayoutProps) {
   const [currentView, setCurrentView] = useState<'left' | 'right'>('left');
   const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
   const [touchDelta, setTouchDelta] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
   const [isScrolling, setIsScrolling] = useState(false);
+  const [isTimerRunning, setIsTimerRunning] = useState(false);
+  const [timerSeconds, setTimerSeconds] = useState(0);
+  const [initialSessionCount, setInitialSessionCount] = useState<number | null>(null);
+  const timerStartRef = useRef<Date | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const { syncCalendar, isSyncing } = useCalendarSync();
   const { toast } = useToast();
+
+  // Silent sync - doesn't show UI feedback
+  const silentSync = useCallback(async (): Promise<boolean> => {
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-calendar');
+      if (error) return false;
+      return (data?.synced || 0) > 0;
+    } catch {
+      return false;
+    }
+  }, []);
+
+  // Get today's session count
+  const getSessionCount = useCallback(async (): Promise<number> => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const { count } = await supabase
+      .from('practice_sessions')
+      .select('*', { count: 'exact', head: true })
+      .gte('started_at', today.toISOString());
+    return count || 0;
+  }, []);
+
+  // Format timer: seconds (0:SS) -> minutes (Xm) -> hours (H:MM)
+  const formatTimer = (seconds: number): string => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    
+    if (h > 0) {
+      // Hour+ : show H:MM
+      return `${h}:${m.toString().padStart(2, '0')}`;
+    } else if (m > 0) {
+      // 1-59 minutes: show Xm
+      return `${m}m`;
+    } else {
+      // Under 1 minute: show 0:SS
+      return `0:${s.toString().padStart(2, '0')}`;
+    }
+  };
+
+  // Timer counter effect - notify parent of mirror time changes
+  useEffect(() => {
+    if (!isTimerRunning) {
+      onMirrorTimeChange?.(0);
+      return;
+    }
+    
+    const interval = setInterval(() => {
+      if (timerStartRef.current) {
+        const elapsed = Math.floor((new Date().getTime() - timerStartRef.current.getTime()) / 1000);
+        setTimerSeconds(elapsed);
+        onMirrorTimeChange?.(elapsed);
+      }
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, [isTimerRunning, onMirrorTimeChange]);
+
+  // Periodic silent sync every 30 seconds while timer is running
+  useEffect(() => {
+    if (!isTimerRunning || initialSessionCount === null) return;
+
+    const pollInterval = setInterval(async () => {
+      const hasNewData = await silentSync();
+      
+      if (hasNewData) {
+        // Check if session count increased
+        const newCount = await getSessionCount();
+        
+        if (newCount > initialSessionCount) {
+          // New session detected! Stop timer and refresh
+          setIsTimerRunning(false);
+          setTimerSeconds(0);
+          timerStartRef.current = null;
+          setInitialSessionCount(null);
+          onMirrorTimeChange?.(0);
+          
+          // Notify parent to refresh data
+          await onSync?.();
+          
+          toast({
+            title: 'Practice session synced!',
+            description: 'New session detected from calendar',
+            duration: 3000,
+          });
+        }
+      }
+    }, 30000); // Every 30 seconds
+
+    return () => clearInterval(pollInterval);
+  }, [isTimerRunning, initialSessionCount, silentSync, getSessionCount, onSync, onMirrorTimeChange, toast]);
+
+  const handleTimerToggle = async () => {
+    if (isTimerRunning) {
+      // Stop timer
+      setIsTimerRunning(false);
+      setTimerSeconds(0);
+      timerStartRef.current = null;
+      setInitialSessionCount(null);
+      onMirrorTimeChange?.(0);
+    } else {
+      // Start timer - record initial session count
+      const count = await getSessionCount();
+      setInitialSessionCount(count);
+      timerStartRef.current = new Date();
+      setTimerSeconds(0);
+      setIsTimerRunning(true);
+    }
+  };
 
   const SWIPE_THRESHOLD = 50;
   const SCROLL_THRESHOLD = 10; // Detect vertical scroll after 10px of vertical movement
@@ -128,6 +244,18 @@ export function SwipeableLayout({ leftView, rightView, onSync, isSwipeDisabled }
 
         {/* Right side controls */}
         <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleTimerToggle}
+            className="hover:bg-transparent hover:text-foreground focus:ring-0 focus-visible:ring-0 focus:outline-none focus-visible:outline-none text-muted-foreground"
+          >
+            {isTimerRunning ? (
+              <span className="font-mono text-sm">{formatTimer(timerSeconds)}</span>
+            ) : (
+              <Play className="w-4 h-4" />
+            )}
+          </Button>
           <Button
             variant="ghost"
             size="sm"
