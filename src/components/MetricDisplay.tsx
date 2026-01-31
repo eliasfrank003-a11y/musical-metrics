@@ -19,6 +19,8 @@ interface MetricDisplayProps {
   baselineAverage?: number;
   isIntradayView?: boolean;
   todayPlayTime?: number; // Today's total play time in hours
+  mirrorTimeSeconds?: number; // Current mirror timer seconds
+  averageProgressPercent?: number; // Progress toward next second in average (0-100)
 }
 
 export function MetricDisplay({
@@ -30,6 +32,8 @@ export function MetricDisplay({
   baselineAverage = 0,
   isIntradayView = false,
   todayPlayTime = 0,
+  mirrorTimeSeconds = 0,
+  averageProgressPercent = 0,
 }: MetricDisplayProps) {
   const formatHoursMinutes = (hours: number): string => {
     const totalSeconds = Math.round(hours * 3600);
@@ -138,6 +142,9 @@ export function MetricDisplay({
   const deltaIsPositive = effectiveDelta >= 0;
   const timeDiffIsPositive = timeDifference !== null ? timeDifference >= 0 : true;
 
+  // Show progress bar when mirror timer is running (on any view, when not hovering)
+  const showMirrorProgress = mirrorTimeSeconds > 0 && !hoveredData && !hoveredIntradayData;
+
   return (
     <div className="flex flex-col items-start py-4">
       <span 
@@ -146,13 +153,31 @@ export function MetricDisplay({
       >
         {displayLabel}
       </span>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 relative">
         <h1 
           className="text-4xl font-bold tracking-tight transition-all duration-150"
           style={{ color: COLORS.white }}
         >
           {formatHoursMinutes(displayValue)}
         </h1>
+        {/* Mirror time progress bar - shows progress to next second in average */}
+        {showMirrorProgress && (
+          <div 
+            className="absolute -bottom-1 left-0 h-0.5 rounded-full overflow-hidden"
+            style={{ 
+              width: '100%',
+              backgroundColor: COLORS.muted,
+            }}
+          >
+            <div 
+              className="h-full rounded-full transition-all duration-100"
+              style={{ 
+                width: `${averageProgressPercent}%`,
+                backgroundColor: COLORS.white,
+              }}
+            />
+          </div>
+        )}
         {showDelta && (
           <div className="flex items-center gap-2">
             {/* Delta in average (seconds) */}

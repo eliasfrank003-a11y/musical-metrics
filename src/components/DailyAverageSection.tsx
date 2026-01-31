@@ -118,9 +118,9 @@ export function DailyAverageSection({ onAnalyticsUpdate, mirrorTimeSeconds = 0 }
     };
   }, []);
 
-  const { filteredData, delta, intradayData, baselineAverage, todayPlayTime, adjustedCurrentAverage, adjustedTotalHours } = useMemo(() => {
+  const { filteredData, delta, intradayData, baselineAverage, todayPlayTime, adjustedCurrentAverage, adjustedTotalHours, averageProgressPercent } = useMemo(() => {
     if (!analytics) {
-      return { filteredData: [], delta: { value: 0, percentage: 0 }, intradayData: [], baselineAverage: 0, todayPlayTime: 0, adjustedCurrentAverage: 0, adjustedTotalHours: 0 };
+      return { filteredData: [], delta: { value: 0, percentage: 0 }, intradayData: [], baselineAverage: 0, todayPlayTime: 0, adjustedCurrentAverage: 0, adjustedTotalHours: 0, averageProgressPercent: 0 };
     }
     
     // Convert mirror time to hours
@@ -130,6 +130,14 @@ export function DailyAverageSection({ onAnalyticsUpdate, mirrorTimeSeconds = 0 }
     const adjustedTotal = analytics.totalHours + mirrorTimeHours;
     // Adjusted current average (includes mirror time distributed over total days)
     const adjustedAvg = analytics.currentAverage + (mirrorTimeHours / analytics.totalDays);
+    
+    // Calculate progress toward next second in the average
+    // Total seconds with mirror time
+    const totalSecondsWithMirror = (analytics.totalHours * 3600) + mirrorTimeSeconds;
+    // Exact average in seconds (e.g., 5234.67)
+    const exactAverageSeconds = totalSecondsWithMirror / analytics.totalDays;
+    // Fractional part = progress toward next second (e.g., 0.67 = 67%)
+    const progressPercent = (exactAverageSeconds - Math.floor(exactAverageSeconds)) * 100;
     
     // For 1D view, calculate intraday data with plateau-slope model
     if (timeRange === '1D') {
@@ -144,22 +152,38 @@ export function DailyAverageSection({ onAnalyticsUpdate, mirrorTimeSeconds = 0 }
       // Calculate today's total play time from raw sessions + mirror time
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      const todayPlayTimeHours = rawSessions
-        .filter(s => {
-          const sessionDate = new Date(s.started_at);
-          sessionDate.setHours(0, 0, 0, 0);
-          return sessionDate.getTime() === today.getTime();
-        })
-        .reduce((sum, s) => sum + s.duration_seconds / 3600, 0) + mirrorTimeHours;
+      const todaySessions = rawSessions.filter(s => {
+        const sessionDate = new Date(s.started_at);
+        sessionDate.setHours(0, 0, 0, 0);
+        return sessionDate.getTime() === today.getTime();
+      });
+      const todayPlayTimeHours = todaySessions.reduce((sum, s) => sum + s.duration_seconds / 3600, 0) + mirrorTimeHours;
+      
+      // Add virtual point for mirror time if timer is running
+      let augmentedIntraday = [...intraday];
+      if (mirrorTimeHours > 0 && intraday.length > 0) {
+        const now = new Date();
+        const lastPoint = intraday[intraday.length - 1];
+        // Only add if current time is after the last point
+        if (now.getTime() > lastPoint.time.getTime()) {
+          augmentedIntraday.push({
+            time: now,
+            timeStr: `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`,
+            cumulativeAverage: intradayAdjustedAvg,
+            cumulativeTodayHours: todayPlayTimeHours,
+          });
+        }
+      }
       
       return { 
         filteredData: [], 
         delta: { value: intradayDelta, percentage: 0 }, 
-        intradayData: intraday,
+        intradayData: augmentedIntraday,
         baselineAverage: baseline,
         todayPlayTime: todayPlayTimeHours,
         adjustedCurrentAverage: intradayAdjustedAvg,
-        adjustedTotalHours: adjustedTotal
+        adjustedTotalHours: adjustedTotal,
+        averageProgressPercent: progressPercent
       };
     }
     
@@ -167,20 +191,42 @@ export function DailyAverageSection({ onAnalyticsUpdate, mirrorTimeSeconds = 0 }
     if (timeRange === '6M' || timeRange === '1Y' || timeRange === 'ALL') {
       data = downsampleData(data, 100);
     }
-    const baseDelta = calculateDelta(data);
-    // Add mirror time contribution to the delta
+    
+    // For 1W view, update the last data point to include mirror time
+    let augmentedData = [...data];
+    if (mirrorTimeHours > 0 && augmentedData.length > 0) {
+      const lastPoint = augmentedData[augmentedData.length - 1];
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const lastPointDate = new Date(lastPoint.date);
+      lastPointDate.setHours(0, 0, 0, 0);
+      
+      // If the last point is today, update it with mirror time
+      if (lastPointDate.getTime() === today.getTime()) {
+        augmentedData[augmentedData.length - 1] = {
+          ...lastPoint,
+          hoursPlayed: lastPoint.hoursPlayed + mirrorTimeHours,
+          cumulativeHours: lastPoint.cumulativeHours + mirrorTimeHours,
+          cumulativeAverage: (lastPoint.cumulativeHours + mirrorTimeHours) / lastPoint.dayNumber,
+        };
+      }
+    }
+    
+    const baseDelta = calculateDelta(augmentedData);
+    // Add mirror time contribution to the delta (for views where today might not be visible)
     const adjustedDelta = {
-      value: baseDelta.value + (mirrorTimeHours / analytics.totalDays),
+      value: baseDelta.value,
       percentage: baseDelta.percentage
     };
     return { 
-      filteredData: data, 
+      filteredData: augmentedData, 
       delta: adjustedDelta, 
       intradayData: [], 
       baselineAverage: 0, 
       todayPlayTime: 0,
       adjustedCurrentAverage: adjustedAvg,
-      adjustedTotalHours: adjustedTotal
+      adjustedTotalHours: adjustedTotal,
+      averageProgressPercent: progressPercent
     };
   }, [analytics, timeRange, rawSessions, mirrorTimeSeconds]);
 
@@ -242,6 +288,8 @@ export function DailyAverageSection({ onAnalyticsUpdate, mirrorTimeSeconds = 0 }
         baselineAverage={baselineAverage}
         isIntradayView={timeRange === '1D'}
         todayPlayTime={todayPlayTime}
+        mirrorTimeSeconds={mirrorTimeSeconds}
+        averageProgressPercent={averageProgressPercent}
       />
 
       {/* Time Range Selector */}
