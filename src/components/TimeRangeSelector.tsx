@@ -1,15 +1,16 @@
 interface TimeRangeSelectorProps {
-  selectedRange: '1D' | '1W' | '1M' | '6M' | '1Y' | 'ALL';
-  onRangeChange: (range: '1D' | '1W' | '1M' | '6M' | '1Y' | 'ALL') => void;
+  selectedRange: '1D' | '1W' | '1M' | '6M' | '1Y' | 'ALL' | 'MAX';
+  onRangeChange: (range: '1D' | '1W' | '1M' | '6M' | '1Y' | 'ALL' | 'MAX') => void;
 }
 
-const ranges: Array<{ key: '1D' | '1W' | '1M' | '6M' | '1Y' | 'ALL'; label: string }> = [
+const ranges: Array<{ key: '1D' | '1W' | '1M' | '6M' | '1Y' | 'ALL' | 'MAX'; label: string }> = [
   { key: '1D', label: '1D' },
   { key: '1W', label: '1W' },
   { key: '1M', label: '1M' },
   { key: '6M', label: '6M' },
   { key: '1Y', label: '1Y' },
-  { key: 'ALL', label: 'Max' },
+  { key: 'MAX', label: 'Max' },
+  { key: 'ALL', label: 'All' },
 ];
 
 export function TimeRangeSelector({ selectedRange, onRangeChange }: TimeRangeSelectorProps) {

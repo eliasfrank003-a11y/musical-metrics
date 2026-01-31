@@ -3,6 +3,7 @@ import { MetricDisplay } from '@/components/MetricDisplay';
 import { TimeRangeSelector } from '@/components/TimeRangeSelector';
 import { PracticeChart } from '@/components/PracticeChart';
 import { IntradayChart } from '@/components/IntradayChart';
+import { AllTimeChart } from '@/components/AllTimeChart';
 import { StatsFooter } from '@/components/StatsFooter';
 import { calculateAnalytics, filterDataByRange, downsampleData, calculateDelta, calculateIntradayData, AnalyticsResult, DailyData, IntradayData } from '@/lib/practiceAnalytics';
 import { PracticeSession } from '@/lib/csvParser';
@@ -13,7 +14,16 @@ import { RefreshCw, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { APP_VERSION } from '@/lib/version';
-type TimeRange = '1D' | '1W' | '1M' | '6M' | '1Y' | 'ALL';
+type TimeRange = '1D' | '1W' | '1M' | '6M' | '1Y' | 'ALL' | 'MAX';
+
+interface Milestone {
+  id: number;
+  hours: number;
+  achieved_at: string | null;
+  average_at_milestone: number | null;
+  description: string | null;
+  milestone_type: string;
+}
 
 interface DailyAverageSectionProps {
   onAnalyticsUpdate?: (analytics: AnalyticsResult | null) => void;
@@ -28,6 +38,7 @@ interface RawSession {
 export function DailyAverageSection({ onAnalyticsUpdate, mirrorTimeSeconds = 0 }: DailyAverageSectionProps) {
   const [analytics, setAnalytics] = useState<AnalyticsResult | null>(null);
   const [rawSessions, setRawSessions] = useState<RawSession[]>([]);
+  const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [timeRange, setTimeRange] = useState<TimeRange>('1M');
   const [isLoading, setIsLoading] = useState(true);
   const [hoveredData, setHoveredData] = useState<DailyData | null>(null);
@@ -83,6 +94,16 @@ export function DailyAverageSection({ onAnalyticsUpdate, mirrorTimeSeconds = 0 }
       const result = calculateAnalytics(sessions);
       setAnalytics(result);
       onAnalyticsUpdate?.(result);
+      
+      // Also fetch milestones for the ALL view
+      const { data: milestonesData } = await supabase
+        .from('milestones')
+        .select('*')
+        .order('hours', { ascending: true });
+      
+      if (milestonesData) {
+        setMilestones(milestonesData as Milestone[]);
+      }
     } catch (error) {
       toast({
         title: 'Error loading data',
@@ -200,8 +221,8 @@ export function DailyAverageSection({ onAnalyticsUpdate, mirrorTimeSeconds = 0 }
       };
     }
     
-    let data = filterDataByRange(analytics.dailyData, timeRange, analytics.endDate);
-    if (timeRange === '6M' || timeRange === '1Y' || timeRange === 'ALL') {
+    let data = filterDataByRange(analytics.dailyData, timeRange === 'MAX' ? 'ALL' : timeRange, analytics.endDate);
+    if (timeRange === '6M' || timeRange === '1Y' || timeRange === 'ALL' || timeRange === 'MAX') {
       data = downsampleData(data, 100);
     }
     
@@ -319,10 +340,16 @@ export function DailyAverageSection({ onAnalyticsUpdate, mirrorTimeSeconds = 0 }
             onHover={setHoveredIntradayData}
             isMirrorActive={mirrorTimeSeconds > 0}
           />
+        ) : timeRange === 'ALL' ? (
+          <AllTimeChart
+            data={filteredData}
+            milestones={milestones}
+            onHover={setHoveredData}
+          />
         ) : (
           <PracticeChart
             data={filteredData}
-            timeRange={timeRange}
+            timeRange={timeRange === 'MAX' ? 'ALL' : timeRange}
             onHover={setHoveredData}
           />
         )}

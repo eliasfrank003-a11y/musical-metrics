@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { format, addDays, differenceInDays, differenceInMonths, differenceInYears } from 'date-fns';
+import { Switch } from '@/components/ui/switch';
 
 interface Milestone {
   id: number;
@@ -27,6 +28,8 @@ const COLORS = {
 
 export function VerticalTimeline({ milestones, currentHours, dailyAverage, startDate }: VerticalTimelineProps) {
   const [expandedNodeId, setExpandedNodeId] = useState<string | null>(null);
+  const [showTeachers, setShowTeachers] = useState(true);
+  const [showOther, setShowOther] = useState(true);
   const today = new Date();
   
   // Calculate future milestones
@@ -56,6 +59,8 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
     is10k?: boolean;
     is1k?: boolean;
     isCustom?: boolean;
+    isTeacher?: boolean;
+    isOtherCustom?: boolean;
     isStart?: boolean;
   };
 
@@ -138,15 +143,22 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
         }
       }
       
+      // Determine if this is a teacher milestone
+      const teacherHours = [250, 447, 530, 641];
+      const isTeacher = isCustom && (teacherHours.includes(m.hours) || customTitle.includes('Didier'));
+      const isOtherCustom = isCustom && !isTeacher;
+      
       timelineNodes.push({
         id: `achieved-${m.id}`,
         hours: m.hours,
         title: isCustom ? customTitle : `${m.hours.toLocaleString()} Hours`,
         date: new Date(m.achieved_at),
-        average: m.average_at_milestone ? formatAverage(m.average_at_milestone) : null,
+        average: m.average_at_milestone ? formatAverage(m.average_at_milestone, m.hours) : null,
         description: m.description,
         isFuture: false,
         isCustom,
+        isTeacher,
+        isOtherCustom,
       });
     }
   });
@@ -165,14 +177,32 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
   // Sort by hours descending
   timelineNodes.sort((a, b) => b.hours - a.hours);
 
-  function formatAverage(avg: number): string {
+  // Filter based on toggle states
+  const filteredNodes = timelineNodes.filter(node => {
+    if (node.isTeacher && !showTeachers) return false;
+    if (node.isOtherCustom && !showOther) return false;
+    return true;
+  });
+
+  function formatAverage(avg: number, hours?: number): string {
     const totalSeconds = Math.round(avg * 3600);
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    if (hours > 0) {
-      return `${hours}h ${minutes}m/day`;
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = totalSeconds % 60;
+    
+    // Show seconds for milestones >= 1000h
+    if (hours !== undefined && hours >= 1000) {
+      if (h > 0) {
+        return `${h}h ${m}m ${s}s/day`;
+      }
+      return `${m}m ${s}s/day`;
     }
-    return `${minutes}m/day`;
+    
+    // Default: no seconds
+    if (h > 0) {
+      return `${h}h ${m}m/day`;
+    }
+    return `${m}m/day`;
   }
 
   function formatTimeAgo(date: Date): string {
@@ -234,7 +264,7 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
   };
 
   // Find where achieved nodes start and end (future nodes are first due to descending sort)
-  const firstAchievedIndex = timelineNodes.findIndex(node => !node.isFuture);
+  const firstAchievedIndex = filteredNodes.findIndex(node => !node.isFuture);
   const hasAchievedNodes = firstAchievedIndex !== -1;
 
   // Progress percentage towards 10k
@@ -300,9 +330,9 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
 
         {/* Timeline Nodes */}
         <div className="space-y-0">
-          {timelineNodes.map((node, index) => {
+          {filteredNodes.map((node, index) => {
             const isFirst = index === 0;
-            const isLast = index === timelineNodes.length - 1;
+            const isLast = index === filteredNodes.length - 1;
             const getNodeStyle = () => {
               if (node.isCurrent) {
                 return { backgroundColor: COLORS.green };
@@ -349,8 +379,9 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
               if (node.isStart && node.date) {
                 return formatTimeSinceStart(node.date);
               }
+              // Custom milestones show average on the right, hours are now in the subtitle
               if (node.isCustom) {
-                return `${node.hours} h`;
+                return node.average || '';
               }
               return node.average || '';
             };
@@ -403,7 +434,11 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
                             className="text-xs mt-0.5"
                             style={{ color: COLORS.muted }}
                           >
-                            {node.isStart ? formatDate(node.date) : formatTimeAgo(node.date)}
+                            {node.isStart 
+                              ? formatDate(node.date) 
+                              : node.isCustom 
+                                ? `h ${node.hours} • ${formatTimeAgo(node.date)}`
+                                : formatTimeAgo(node.date)}
                           </p>
                         )}
                       </div>
@@ -469,6 +504,40 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
               </div>
             );
           })}
+        </div>
+      </div>
+
+      {/* Filter toggles */}
+      <div className="mt-6 pt-4 border-t flex justify-center gap-8" style={{ borderColor: COLORS.line }}>
+        <div className="flex items-center gap-2">
+          <Switch
+            id="teachers-toggle"
+            checked={showTeachers}
+            onCheckedChange={setShowTeachers}
+            className="data-[state=checked]:bg-white/80"
+          />
+          <label 
+            htmlFor="teachers-toggle" 
+            className="text-sm cursor-pointer"
+            style={{ color: COLORS.muted }}
+          >
+            Teachers
+          </label>
+        </div>
+        <div className="flex items-center gap-2">
+          <Switch
+            id="other-toggle"
+            checked={showOther}
+            onCheckedChange={setShowOther}
+            className="data-[state=checked]:bg-white/80"
+          />
+          <label 
+            htmlFor="other-toggle" 
+            className="text-sm cursor-pointer"
+            style={{ color: COLORS.muted }}
+          >
+            Other
+          </label>
         </div>
       </div>
     </div>
