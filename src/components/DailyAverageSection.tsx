@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
+import { format, startOfDay } from 'date-fns';
 import { MetricDisplay } from '@/components/MetricDisplay';
 import { TimeRangeSelector } from '@/components/TimeRangeSelector';
 import { PracticeChart } from '@/components/PracticeChart';
@@ -100,10 +101,43 @@ export function DailyAverageSection({ onAnalyticsUpdate, mirrorTimeSeconds = 0 }
         .from('milestones')
         .select('*')
         .order('hours', { ascending: true });
-      
-      if (milestonesData) {
-        setMilestones(milestonesData as Milestone[]);
-      }
+
+      const getCumulativeAt = (target: Date) => {
+        const key = format(startOfDay(target), 'yyyy-MM-dd');
+        const exact = result.dailyData.find(d => d.dateStr === key);
+        if (exact) return exact.cumulativeHours;
+        if (target < result.startDate) return 0;
+        if (target > result.endDate) return result.totalHours;
+        const fallback = [...result.dailyData].reverse().find(d => d.date <= target);
+        return fallback ? fallback.cumulativeHours : 0;
+      };
+
+      const y1Date = new Date('2025-02-01T00:00:00');
+      const y2Date = startOfDay(new Date());
+
+      const syntheticMilestones: Milestone[] = [
+        {
+          id: -1001,
+          hours: Math.round(getCumulativeAt(y1Date)),
+          achieved_at: y1Date.toISOString(),
+          average_at_milestone: null,
+          description: 'Y1',
+          milestone_type: 'custom',
+        },
+        {
+          id: -1002,
+          hours: Math.round(getCumulativeAt(y2Date)),
+          achieved_at: y2Date.toISOString(),
+          average_at_milestone: null,
+          description: 'Y2',
+          milestone_type: 'custom',
+        },
+      ];
+
+      const combined = [...(milestonesData ?? []), ...syntheticMilestones]
+        .sort((a, b) => a.hours - b.hours);
+
+      setMilestones(combined as Milestone[]);
     } catch (error) {
       toast({
         title: 'Error loading data',

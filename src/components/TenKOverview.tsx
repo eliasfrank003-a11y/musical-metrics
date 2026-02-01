@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { VerticalTimeline } from '@/components/dashboard/VerticalTimeline';
 import { useMilestones } from '@/hooks/useMilestones';
 import { AnalyticsResult } from '@/lib/practiceAnalytics';
+import { format, startOfDay } from 'date-fns';
 
 interface TenKOverviewProps {
   analytics: AnalyticsResult | null;
@@ -17,6 +18,44 @@ export function TenKOverview({ analytics, mirrorTimeSeconds = 0 }: TenKOverviewP
       checkAndCreateMilestones(analytics.totalHours, analytics.currentAverage);
     }
   }, [analytics?.totalHours, analytics?.currentAverage, checkAndCreateMilestones]);
+
+  const timelineMilestones = useMemo(() => {
+    if (!analytics) return milestones;
+
+    const getCumulativeAt = (target: Date) => {
+      const key = format(startOfDay(target), 'yyyy-MM-dd');
+      const exact = analytics.dailyData.find(d => d.dateStr === key);
+      if (exact) return exact.cumulativeHours;
+      if (target < analytics.startDate) return 0;
+      if (target > analytics.endDate) return analytics.totalHours;
+      const fallback = [...analytics.dailyData].reverse().find(d => d.date <= target);
+      return fallback ? fallback.cumulativeHours : 0;
+    };
+
+    const y1Date = new Date('2025-02-01T00:00:00');
+    const y2Date = startOfDay(new Date());
+
+    const synthetic = [
+      {
+        id: -1001,
+        hours: Math.round(getCumulativeAt(y1Date)),
+        achieved_at: y1Date.toISOString(),
+        average_at_milestone: null,
+        description: 'Y1',
+        milestone_type: 'custom',
+      },
+      {
+        id: -1002,
+        hours: Math.round(getCumulativeAt(y2Date)),
+        achieved_at: y2Date.toISOString(),
+        average_at_milestone: null,
+        description: 'Y2',
+        milestone_type: 'custom',
+      },
+    ];
+
+    return [...milestones, ...synthetic].sort((a, b) => a.hours - b.hours);
+  }, [analytics, milestones]);
 
   if (!analytics) {
     return (
@@ -34,7 +73,7 @@ export function TenKOverview({ analytics, mirrorTimeSeconds = 0 }: TenKOverviewP
     <div className="pb-8">
       {/* Unified Vertical Timeline with forecasts */}
       <VerticalTimeline
-        milestones={milestones}
+        milestones={timelineMilestones}
         currentHours={adjustedTotalHours}
         dailyAverage={analytics.currentAverage}
         startDate={analytics.startDate}

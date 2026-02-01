@@ -7,6 +7,7 @@ import { IntradayChart } from '@/components/IntradayChart';
 import { StatsFooter } from '@/components/StatsFooter';
 import { parseCSV, PracticeSession } from '@/lib/csvParser';
 import { calculateAnalytics, filterDataByRange, downsampleData, calculateDelta, calculateIntradayData, AnalyticsResult, DailyData, IntradayData } from '@/lib/practiceAnalytics';
+import { format, startOfDay } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useMilestones } from '@/hooks/useMilestones';
@@ -32,6 +33,44 @@ export function Dashboard() {
   const { toast } = useToast();
   const { milestones, isLoading: milestonesLoading } = useMilestones();
   const { syncState, syncCalendar, isSyncing } = useCalendarSync();
+
+  const timelineMilestones = useMemo(() => {
+    if (!analytics) return milestones;
+
+    const getCumulativeAt = (target: Date) => {
+      const key = format(startOfDay(target), 'yyyy-MM-dd');
+      const exact = analytics.dailyData.find(d => d.dateStr === key);
+      if (exact) return exact.cumulativeHours;
+      if (target < analytics.startDate) return 0;
+      if (target > analytics.endDate) return analytics.totalHours;
+      const fallback = [...analytics.dailyData].reverse().find(d => d.date <= target);
+      return fallback ? fallback.cumulativeHours : 0;
+    };
+
+    const y1Date = new Date('2025-02-01T00:00:00');
+    const y2Date = startOfDay(new Date());
+
+    const synthetic = [
+      {
+        id: -1001,
+        hours: Math.round(getCumulativeAt(y1Date)),
+        achieved_at: y1Date.toISOString(),
+        average_at_milestone: null,
+        description: 'Y1',
+        milestone_type: 'custom',
+      },
+      {
+        id: -1002,
+        hours: Math.round(getCumulativeAt(y2Date)),
+        achieved_at: y2Date.toISOString(),
+        average_at_milestone: null,
+        description: 'Y2',
+        milestone_type: 'custom',
+      },
+    ];
+
+    return [...milestones, ...synthetic].sort((a, b) => a.hours - b.hours);
+  }, [analytics, milestones]);
 
   // Fetch all data from Supabase (paginated)
   const fetchData = useCallback(async () => {
@@ -199,7 +238,7 @@ export function Dashboard() {
           <div className="space-y-8">
             {/* Unified Vertical Timeline */}
             <VerticalTimeline
-              milestones={milestones}
+              milestones={timelineMilestones}
               currentHours={analytics.totalHours}
               dailyAverage={analytics.currentAverage}
               startDate={analytics.startDate}

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { format, addDays, differenceInDays, differenceInMonths, differenceInYears } from 'date-fns';
 import { Switch } from '@/components/ui/switch';
 
@@ -28,9 +28,25 @@ const COLORS = {
 
 export function VerticalTimeline({ milestones, currentHours, dailyAverage, startDate }: VerticalTimelineProps) {
   const [expandedNodeId, setExpandedNodeId] = useState<string | null>(null);
-  const [showTeachers, setShowTeachers] = useState(true);
-  const [showOther, setShowOther] = useState(true);
+  const [showTeachers, setShowTeachers] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    const stored = window.localStorage.getItem('timeline:showTeachers');
+    return stored === null ? true : stored === 'true';
+  });
+  const [showOther, setShowOther] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    const stored = window.localStorage.getItem('timeline:showOther');
+    return stored === null ? true : stored === 'true';
+  });
   const today = new Date();
+
+  useEffect(() => {
+    window.localStorage.setItem('timeline:showTeachers', String(showTeachers));
+  }, [showTeachers]);
+
+  useEffect(() => {
+    window.localStorage.setItem('timeline:showOther', String(showOther));
+  }, [showOther]);
   
   // Calculate future milestones
   const hoursTo10k = Math.max(0, 10000 - currentHours);
@@ -66,12 +82,14 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
 
   const timelineNodes: TimelineNode[] = [];
 
+  const formatHoursTitle = (hours: number) => `${hours.toLocaleString('de-DE')} Hours`;
+
   // Add 10k goal at top
   if (currentHours < 10000) {
     timelineNodes.push({
       id: 'goal-10k',
       hours: 10000,
-      title: '10,000 Hours',
+      title: formatHoursTitle(10000),
       date: date10k,
       average: null,
       isFuture: true,
@@ -84,7 +102,7 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
     timelineNodes.push({
       id: `future-${next1k}`,
       hours: next1k,
-      title: `${next1k.toLocaleString()} Hours`,
+      title: formatHoursTitle(next1k),
       date: dateNext1k,
       average: null,
       isFuture: true,
@@ -97,7 +115,7 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
     timelineNodes.push({
       id: `future-${next100}`,
       hours: next100,
-      title: `${next100.toLocaleString()} Hours`,
+      title: formatHoursTitle(next100),
       date: dateNext100,
       average: null,
       isFuture: true,
@@ -108,7 +126,7 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
   milestones.forEach((m) => {
     if (m.achieved_at) {
       const isCustom = m.milestone_type === 'custom';
-      let customTitle = `${m.hours.toLocaleString()} Hours`;
+      let customTitle = formatHoursTitle(m.hours);
       
       if (isCustom) {
         // Direct mapping for known custom milestones
@@ -123,11 +141,12 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
           customTitle = customTitles[m.hours];
         } else if (m.description) {
           const lines = m.description.split('\n').map(l => l.trim()).filter(l => l);
+          const explicitLabel = lines.find(l => l === 'Y1' || l === 'Y2');
           const isDate = (s: string) => /^\d{2}\/\d{2}\/\d{4}$/.test(s) || /^\d{2}\/\d{2}\/\d{2}$/.test(s);
           const locations = ['Maastricht', 'Rungan Sari', 'Florence'];
           const equipment = ['Roland FP-30X', 'Kawai RX1', 'Kawai CA901'];
           
-          const nameLine = lines.find(l => !isDate(l) && !locations.includes(l) && !equipment.includes(l));
+          const nameLine = explicitLabel ?? lines.find(l => !isDate(l) && !locations.includes(l) && !equipment.includes(l));
           
           if (nameLine) {
             if (nameLine.toLowerCase().includes('splitting')) {
@@ -151,7 +170,7 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
       timelineNodes.push({
         id: `achieved-${m.id}`,
         hours: m.hours,
-        title: isCustom ? customTitle : `${m.hours.toLocaleString()} Hours`,
+        title: isCustom ? customTitle : formatHoursTitle(m.hours),
         date: new Date(m.achieved_at),
         average: m.average_at_milestone ? formatAverage(m.average_at_milestone, m.hours) : null,
         description: m.description,
@@ -174,8 +193,13 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
     isStart: true,
   });
 
-  // Sort by hours descending
-  timelineNodes.sort((a, b) => b.hours - a.hours);
+  // Sort by hours descending; tie-breaker by date ascending for stable order
+  timelineNodes.sort((a, b) => {
+    if (b.hours !== a.hours) return b.hours - a.hours;
+    const aTime = a.date ? a.date.getTime() : 0;
+    const bTime = b.date ? b.date.getTime() : 0;
+    return aTime - bTime;
+  });
 
   // Filter based on toggle states
   const filteredNodes = timelineNodes.filter(node => {
