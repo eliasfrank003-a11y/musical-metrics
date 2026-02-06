@@ -221,21 +221,19 @@ export function SwipeableLayout({ leftView, rightView, onSync, onMirrorTimeChang
         {/* Tab Selectors - Trade Republic style */}
         <div className="flex items-center gap-4">
           <button 
-            onClick={() => !isSwipeDisabled && setCurrentView('left')} 
+            onClick={() => setCurrentView('left')} 
             className={cn(
               "text-xl font-semibold transition-colors",
-              currentView === 'left' ? "text-foreground" : "text-muted-foreground",
-              isSwipeDisabled && "opacity-50 cursor-not-allowed"
+              currentView === 'left' ? "text-foreground" : "text-muted-foreground"
             )} 
           >
             Time
           </button>
           <button 
-            onClick={() => !isSwipeDisabled && setCurrentView('right')} 
+            onClick={() => setCurrentView('right')} 
             className={cn(
               "text-xl font-semibold transition-colors",
-              currentView === 'right' ? "text-foreground" : "text-muted-foreground",
-              isSwipeDisabled && "opacity-50 cursor-not-allowed"
+              currentView === 'right' ? "text-foreground" : "text-muted-foreground"
             )} 
           >
             Repertoire
