@@ -102,7 +102,7 @@ const VISUAL_START_DATE = new Date('2024-03-01');
  */
 export function filterDataByRange(
   data: DailyData[],
-  range: '1D' | '1W' | '1M' | '6M' | '1Y' | 'ALL',
+  range: '1D' | '1W' | '1M' | '6M' | '1Y' | 'ALL' | 'MAX',
   endDate: Date
 ): DailyData[] {
   if (data.length === 0) {
@@ -119,7 +119,8 @@ export function filterDataByRange(
   
   switch (range) {
     case 'ALL':
-      // For ALL view, start from the visual start date to hide early volatility
+    case 'MAX':
+      // For ALL/MAX view, start from the visual start date to hide early volatility
       startDate = VISUAL_START_DATE;
       break;
     case '1W':

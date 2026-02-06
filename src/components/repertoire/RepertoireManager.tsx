@@ -111,8 +111,9 @@ export function RepertoireManager({
             size="sm"
             onClick={() => setShowRedOnly(!showRedOnly)}
             className={cn(
-              "gap-1.5 font-semibold text-sm focus:ring-0 focus-visible:ring-0 focus:outline-none focus-visible:outline-none hover:bg-transparent hover:text-destructive",
-              showRedOnly ? "text-destructive" : "text-muted-foreground"
+              "gap-1.5 font-semibold text-sm focus:ring-0 focus-visible:ring-0 focus:outline-none focus-visible:outline-none hover:bg-transparent active:bg-transparent",
+              showRedOnly ? "text-destructive" : "text-muted-foreground",
+              "[@media(hover:hover)]:hover:text-destructive"
             )}
           >
             RED
@@ -124,10 +125,11 @@ export function RepertoireManager({
             size="sm"
             onClick={() => setIsEditMode(!isEditMode)}
             className={cn(
-              "gap-1.5 focus:ring-0 focus-visible:ring-0 focus:outline-none focus-visible:outline-none hover:bg-transparent",
+              "gap-1.5 focus:ring-0 focus-visible:ring-0 focus:outline-none focus-visible:outline-none hover:bg-transparent active:bg-transparent",
               isEditMode 
-                ? "text-destructive hover:text-destructive" 
-                : "text-muted-foreground hover:text-foreground"
+                ? "text-destructive" 
+                : "text-muted-foreground",
+              "[@media(hover:hover)]:hover:text-foreground"
             )}
           >
             <Pencil className="h-4 w-4" />
@@ -139,7 +141,7 @@ export function RepertoireManager({
               <Button 
                 variant="ghost" 
                 size="sm"
-                className="text-muted-foreground hover:bg-transparent hover:text-foreground focus:ring-0 focus-visible:ring-0 focus:outline-none focus-visible:outline-none"
+                className="text-muted-foreground hover:bg-transparent active:bg-transparent [@media(hover:hover)]:hover:text-foreground focus:ring-0 focus-visible:ring-0 focus:outline-none focus-visible:outline-none"
               >
                 <Plus className="h-5 w-5" strokeWidth={2.5} />
               </Button>

@@ -16,7 +16,7 @@ import { RefreshCw, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { APP_VERSION } from '@/lib/version';
-type TimeRange = '1D' | '1W' | '1M' | '6M' | '1Y' | 'ALL';
+type TimeRange = '1D' | '1W' | '1M' | '6M' | '1Y' | 'ALL' | 'MAX';
 
 interface RawSession {
   started_at: string;
@@ -274,6 +274,7 @@ export function Dashboard() {
                 <StatsFooter
                   totalHours={analytics.totalHours}
                   totalDays={analytics.totalDays}
+                  currentAverage={analytics.currentAverage}
                 />
               </div>
             </div>

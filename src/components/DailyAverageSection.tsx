@@ -237,8 +237,11 @@ export function DailyAverageSection({ onAnalyticsUpdate, mirrorTimeSeconds = 0 }
           augmentedIntraday.push({
             time: now,
             timeStr: `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`,
+            hourOfDay: now.getHours(),
             cumulativeAverage: avgWithMirror,
+            hoursPlayedThisInterval: 0,
             cumulativeTodayHours: todayWithMirror,
+            isCurrentHour: true,
           });
         }
       }
@@ -394,6 +397,7 @@ export function DailyAverageSection({ onAnalyticsUpdate, mirrorTimeSeconds = 0 }
         <StatsFooter
           totalHours={adjustedTotalHours}
           totalDays={analytics.totalDays}
+          currentAverage={adjustedCurrentAverage}
         />
       </div>
     </div>
