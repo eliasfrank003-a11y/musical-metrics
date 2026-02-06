@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { Info } from 'lucide-react';
 import { formatHoursMinutes } from '@/lib/practiceAnalytics';
 import { AverageInfoDialog } from './AverageInfoDialog';
 
@@ -20,7 +21,7 @@ export function StatsFooter({ totalHours, totalDays, currentAverage, onAddMilest
   const [showInfo, setShowInfo] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const cards = [
+  const cards: { key: string; label: string; value: React.ReactNode; onClick?: () => void }[] = [
     {
       key: 'total-hours',
       label: 'Total Hours',
@@ -42,7 +43,7 @@ export function StatsFooter({ totalHours, totalDays, currentAverage, onAddMilest
     {
       key: 'info',
       label: 'Time Info',
-      value: 'i',
+      value: <Info className="h-4 w-4" style={{ color: COLORS.white }} />,
       onClick: () => setShowInfo(true),
     },
   ];
@@ -72,13 +73,7 @@ export function StatsFooter({ totalHours, totalDays, currentAverage, onAddMilest
               }}
             >
               <span className="text-[10px] whitespace-nowrap" style={{ color: COLORS.muted }}>{card.label}</span>
-              <span 
-                className="text-sm font-semibold" 
-                style={{ 
-                  color: COLORS.white,
-                  fontStyle: card.key === 'info' ? 'italic' : 'normal',
-                }}
-              >
+              <span className="text-sm font-semibold" style={{ color: COLORS.white }}>
                 {card.value}
               </span>
             </Component>
