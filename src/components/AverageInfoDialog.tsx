@@ -20,7 +20,7 @@ interface AverageInfoDialogProps {
 }
 
 /**
- * Calculate how many minutes need to be played TODAY to increase
+ * Calculate how many seconds need to be played TODAY to increase
  * the lifetime daily average by a given number of seconds.
  * 
  * Formula:
@@ -28,15 +28,21 @@ interface AverageInfoDialogProps {
  * newAvg = currentAvg + deltaSeconds/3600
  * neededTotalHours = newAvg * totalDays
  * additionalHours = neededTotalHours - totalHours
- * additionalMinutes = additionalHours * 60
+ * additionalSeconds = additionalHours * 3600
  */
-function minutesToIncreaseBy(totalHours: number, totalDays: number, deltaSeconds: number): number {
+function secondsToIncreaseBy(totalHours: number, totalDays: number, deltaSeconds: number): number {
   const currentAvg = totalHours / totalDays;
   const targetAvg = currentAvg + deltaSeconds / 3600;
   const neededTotal = targetAvg * totalDays;
   const additionalHours = neededTotal - totalHours;
-  const additionalMinutes = additionalHours * 60;
-  return Math.max(0, Math.ceil(additionalMinutes));
+  const additionalSeconds = additionalHours * 3600;
+  return Math.max(0, Math.ceil(additionalSeconds));
+}
+
+function formatMinutesAndSeconds(totalSeconds: number): string {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes} min ${seconds} sec`;
 }
 
 export function AverageInfoDialog({ open, onOpenChange, currentAverage, totalHours, totalDays }: AverageInfoDialogProps) {
@@ -59,7 +65,7 @@ export function AverageInfoDialog({ open, onOpenChange, currentAverage, totalHou
         </p>
         <div className="space-y-2">
           {steps.map(({ seconds, label }) => {
-            const mins = minutesToIncreaseBy(totalHours, totalDays, seconds);
+            const totalSeconds = secondsToIncreaseBy(totalHours, totalDays, seconds);
             return (
               <div
                 key={seconds}
@@ -68,7 +74,7 @@ export function AverageInfoDialog({ open, onOpenChange, currentAverage, totalHou
               >
                 <span className="text-sm" style={{ color: COLORS.muted }}>{label}</span>
                 <span className="text-sm font-semibold" style={{ color: COLORS.white }}>
-                  {mins} min
+                  {formatMinutesAndSeconds(totalSeconds)}
                 </span>
               </div>
             );

@@ -143,11 +143,20 @@ export function SwipeableLayout({ leftView, rightView, onSync, onMirrorTimeChang
   const SWIPE_THRESHOLD = 50;
   const SCROLL_THRESHOLD = 10; // Detect vertical scroll after 10px of vertical movement
 
+  const isInteractiveTarget = (target: EventTarget | null): boolean => {
+    if (!(target instanceof Element)) return false;
+    return !!target.closest(
+      'button, a, input, textarea, select, [role="button"], [role="link"], [data-swipe-ignore]'
+    );
+  };
+
   const handleTouchStart = (e: React.TouchEvent) => {
     if (isSwipeDisabled) return;
+    if (isInteractiveTarget(e.target)) return;
     setTouchStart({ x: e.touches[0].clientX, y: e.touches[0].clientY });
     setIsScrolling(false);
     setIsSwiping(true);
+    setTouchDelta(0);
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
