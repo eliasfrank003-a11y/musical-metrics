@@ -13,7 +13,7 @@ import { DailyData } from '@/lib/practiceAnalytics';
 
 interface PracticeChartProps {
   data: DailyData[];
-  timeRange: '1D' | '1W' | '1M' | '6M' | '1Y' | 'ALL';
+  timeRange: '1D' | '1W' | '1M' | '6M' | '1Y' | 'ALL' | 'MAX';
   onHover?: (data: DailyData | null) => void;
 }
 

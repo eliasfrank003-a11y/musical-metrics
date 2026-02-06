@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useCalendarSync } from '@/hooks/useCalendarSync';
 import { APP_VERSION } from '@/lib/version';
-type TimeRange = '1D' | '1W' | '1M' | '6M' | '1Y' | 'ALL';
+type TimeRange = '1D' | '1W' | '1M' | '6M' | '1Y' | 'ALL' | 'MAX';
 
 interface RawSession {
   started_at: string;
@@ -269,6 +269,7 @@ const Index = () => {
             <StatsFooter
               totalHours={analytics.totalHours}
               totalDays={analytics.totalDays}
+              currentAverage={analytics.currentAverage}
             />
           </div>
         ) : (
