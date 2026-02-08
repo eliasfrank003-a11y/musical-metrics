@@ -232,7 +232,7 @@ export function SwipeableLayout({ leftView, rightView, onSync, onMirrorTimeChang
   };
 
   return (
-    <div className="h-screen overflow-y-auto bg-background">
+    <div className={cn("h-screen bg-background", isSwiping ? "overflow-hidden" : "overflow-y-auto")}>
       {/* Top Header with Tabs and Controls */}
       <div className="flex items-center justify-between px-4 pt-6 pb-3">
         {/* Tab Selectors - Trade Republic style */}
@@ -299,10 +299,18 @@ export function SwipeableLayout({ leftView, rightView, onSync, onMirrorTimeChang
       <div 
         ref={containerRef} 
         className="overflow-hidden" 
-        style={{ touchAction: 'pan-y' }}
+        style={{ touchAction: isSwiping ? 'none' : 'pan-y' }}
         onTouchStart={handleTouchStart} 
         onTouchMove={handleTouchMove} 
         onTouchEnd={handleTouchEnd}
+        onTouchMoveCapture={(e) => {
+          if (axisLockRef.current === 'x') {
+            e.preventDefault();
+          }
+        }}
+        onTouchEndCapture={() => {
+          axisLockRef.current = null;
+        }}
       >
         <div 
           className={cn(
