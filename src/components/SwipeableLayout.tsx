@@ -18,15 +18,15 @@ interface SwipeableLayoutProps {
 
 export function SwipeableLayout({ leftView, rightView, onSync, onMirrorTimeChange, isSwipeDisabled }: SwipeableLayoutProps) {
   const [currentView, setCurrentView] = useState<'left' | 'right'>('left');
-  const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
   const [touchDelta, setTouchDelta] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
-  const [isScrolling, setIsScrolling] = useState(false);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [timerSeconds, setTimerSeconds] = useState(0);
   const [initialSessionCount, setInitialSessionCount] = useState<number | null>(null);
   const timerStartRef = useRef<Date | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const axisLockRef = useRef<'x' | 'y' | null>(null);
   const { syncCalendar, isSyncing } = useCalendarSync();
   const { toast } = useToast();
 
@@ -140,8 +140,8 @@ export function SwipeableLayout({ leftView, rightView, onSync, onMirrorTimeChang
     }
   };
 
-  const SWIPE_THRESHOLD = 50;
-  const SCROLL_THRESHOLD = 10; // Detect vertical scroll after 10px of vertical movement
+  const SWIPE_THRESHOLD = 40;
+  const DIRECTION_LOCK_THRESHOLD = 8;
 
   const isInteractiveTarget = (target: EventTarget | null): boolean => {
     if (!(target instanceof Element)) return false;
@@ -153,41 +153,49 @@ export function SwipeableLayout({ leftView, rightView, onSync, onMirrorTimeChang
   const handleTouchStart = (e: React.TouchEvent) => {
     if (isSwipeDisabled) return;
     if (isInteractiveTarget(e.target)) return;
-    setTouchStart({ x: e.touches[0].clientX, y: e.touches[0].clientY });
-    setIsScrolling(false);
-    setIsSwiping(true);
+    if (e.touches.length !== 1) return;
+    touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    axisLockRef.current = null;
+    setIsSwiping(false);
     setTouchDelta(0);
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (touchStart === null || isSwipeDisabled) return;
+    if (touchStartRef.current === null || isSwipeDisabled) return;
 
     const currentX = e.touches[0].clientX;
     const currentY = e.touches[0].clientY;
-    const deltaX = currentX - touchStart.x;
-    const deltaY = currentY - touchStart.y;
+    const deltaX = currentX - touchStartRef.current.x;
+    const deltaY = currentY - touchStartRef.current.y;
+    const absX = Math.abs(deltaX);
+    const absY = Math.abs(deltaY);
 
-    // Determine if user is scrolling vertically
-    if (Math.abs(deltaY) > SCROLL_THRESHOLD) {
-      setIsScrolling(true);
-      return;
+    if (!axisLockRef.current) {
+      if (absX < DIRECTION_LOCK_THRESHOLD && absY < DIRECTION_LOCK_THRESHOLD) return;
+      if (absX > absY + 2) {
+        axisLockRef.current = 'x';
+        setIsSwiping(true);
+      } else if (absY > absX + 2) {
+        axisLockRef.current = 'y';
+        return;
+      }
     }
 
-    // Only allow horizontal swipe if not scrolling vertically
-    if (!isScrolling) {
+    if (axisLockRef.current === 'x') {
+      e.preventDefault();
       setTouchDelta(deltaX);
     }
   };
 
   const handleTouchEnd = () => {
-    if (!isScrolling && Math.abs(touchDelta) > SWIPE_THRESHOLD) {
+    if (axisLockRef.current === 'x' && Math.abs(touchDelta) > SWIPE_THRESHOLD) {
       if (touchDelta > 0 && currentView === 'right') setCurrentView('left');
       else if (touchDelta < 0 && currentView === 'left') setCurrentView('right');
     }
-    setTouchStart(null);
+    touchStartRef.current = null;
+    axisLockRef.current = null;
     setTouchDelta(0);
     setIsSwiping(false);
-    setIsScrolling(false);
   };
 
   const getTranslateX = () => {
@@ -291,6 +299,7 @@ export function SwipeableLayout({ leftView, rightView, onSync, onMirrorTimeChang
       <div 
         ref={containerRef} 
         className="overflow-hidden" 
+        style={{ touchAction: 'pan-y' }}
         onTouchStart={handleTouchStart} 
         onTouchMove={handleTouchMove} 
         onTouchEnd={handleTouchEnd}

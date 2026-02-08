@@ -11,9 +11,8 @@ interface MirrorTimerProps {
 }
 
 const COLORS = {
-  muted: '#595A5F',
-  red: '#FD4136',
-  green: '#09C651',
+  red: 'hsl(var(--chart-negative))',
+  green: 'hsl(var(--chart-positive))',
 };
 
 export function MirrorTimer({ onTimerStateChange, onNewSessionDetected }: MirrorTimerProps) {

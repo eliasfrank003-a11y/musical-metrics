@@ -118,7 +118,7 @@ All colors MUST be HSL.
   }
 
   html {
-    background-color: #000000;
+    background-color: hsl(var(--background));
   }
 
   /* Completely disable scrollbars everywhere */

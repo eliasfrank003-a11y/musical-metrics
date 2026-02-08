@@ -216,7 +216,7 @@ const Index = () => {
         {/* Header */}
         <div className="flex flex-col items-end mb-8">
           <Link to="/settings">
-            <Button variant="ghost" size="sm" className="font-mono" style={{ color: '#595A5F' }}>
+            <Button variant="ghost" size="sm" className="font-mono text-muted-foreground">
               {APP_VERSION}
             </Button>
           </Link>
@@ -225,8 +225,7 @@ const Index = () => {
             size="sm"
             onClick={handleManualSync}
             disabled={isSyncing}
-            className="-mt-1 disabled:opacity-100 text-inherit hover:text-inherit active:text-inherit focus-visible:text-inherit"
-            style={{ color: isSyncing ? '#FFFFFF' : '#595A5F' }}
+            className={`-mt-1 disabled:opacity-100 text-inherit hover:text-inherit active:text-inherit focus-visible:text-inherit ${isSyncing ? 'text-foreground' : 'text-muted-foreground'}`}
           >
             <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
           </Button>

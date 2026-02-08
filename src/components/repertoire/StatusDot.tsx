@@ -9,9 +9,9 @@ interface StatusDotProps {
 }
 
 const STATUS_COLORS: Record<Status, string> = {
-  grey: '#595A5F',
-  green: '#09C651',
-  red: '#FD4136',
+  grey: 'hsl(var(--muted-foreground))',
+  green: 'hsl(var(--chart-positive))',
+  red: 'hsl(var(--chart-negative))',
 };
 
 export function StatusDot({ status, onClick, disabled }: StatusDotProps) {

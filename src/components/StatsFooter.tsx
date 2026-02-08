@@ -3,13 +3,6 @@ import { Info } from 'lucide-react';
 import { formatHoursMinutes } from '@/lib/practiceAnalytics';
 import { AverageInfoDialog } from './AverageInfoDialog';
 
-// Trade Republic exact colors
-const COLORS = {
-  unreached: '#161616',
-  muted: '#595A5F',
-  white: '#FFFFFF',
-};
-
 interface StatsFooterProps {
   totalHours: number;
   totalDays: number;
@@ -43,7 +36,7 @@ export function StatsFooter({ totalHours, totalDays, currentAverage, onAddMilest
     {
       key: 'info',
       label: 'Time Info',
-      value: <Info className="h-4 w-4" style={{ color: COLORS.white }} />,
+      value: <Info className="h-4 w-4 text-foreground" />,
       onClick: () => setShowInfo(true),
     },
   ];
@@ -52,12 +45,14 @@ export function StatsFooter({ totalHours, totalDays, currentAverage, onAddMilest
     <>
       <div 
         ref={scrollRef}
-        className="flex gap-2 overflow-x-auto"
+        data-swipe-ignore
+        className="flex gap-2 overflow-x-auto overscroll-x-contain"
         style={{ 
           WebkitOverflowScrolling: 'touch',
           scrollSnapType: 'x mandatory',
           msOverflowStyle: 'none',
           scrollbarWidth: 'none',
+          touchAction: 'pan-x',
         }}
       >
         {cards.map((card) => {
@@ -66,14 +61,13 @@ export function StatsFooter({ totalHours, totalDays, currentAverage, onAddMilest
             <Component
               key={card.key}
               onClick={card.onClick}
-              className="flex flex-col px-3 py-2 rounded-lg flex-shrink-0 min-w-[calc(33.333%-6px)] text-left transition-opacity active:opacity-80"
+              className="flex flex-col px-3 py-2 rounded-lg flex-shrink-0 min-w-[calc(33.333%-6px)] text-left transition-opacity active:opacity-80 bg-muted"
               style={{ 
-                backgroundColor: COLORS.unreached,
                 scrollSnapAlign: 'start',
               }}
             >
-              <span className="text-[10px] whitespace-nowrap" style={{ color: COLORS.muted }}>{card.label}</span>
-              <span className="text-sm font-semibold" style={{ color: COLORS.white }}>
+              <span className="text-[10px] whitespace-nowrap text-muted-foreground">{card.label}</span>
+              <span className="text-sm font-semibold text-foreground">
                 {card.value}
               </span>
             </Component>

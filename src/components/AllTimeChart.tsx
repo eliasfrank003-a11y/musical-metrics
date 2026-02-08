@@ -28,10 +28,10 @@ interface AllTimeChartProps {
 
 // Minimalist color palette
 const COLORS = {
-  line: '#6B7280',        // Neutral gray for the main line
-  muted: '#595A5F',       // Muted text for axes
-  white: '#FFFFFF',       // White for active dot
-  annotation: '#9CA3AF',  // Single color for most annotations
+  line: 'hsl(var(--muted-foreground))',        // Neutral line color
+  muted: 'hsl(var(--muted-foreground))',       // Muted text for axes
+  white: 'hsl(var(--foreground))',             // Foreground for active dot
+  annotation: 'hsl(var(--muted-foreground))',  // Neutral for annotations
   teachers: '#F59E0B',    // Warm amber for teachers
   milestone: '#A78BFA',   // Soft purple for special milestones (Split Time, App v1)
 };
@@ -111,6 +111,7 @@ export function AllTimeChart({ data, milestones, onHover }: AllTimeChartProps) {
   const [viewStart, setViewStart] = useState<number | null>(null);
   const [viewEnd, setViewEnd] = useState<number | null>(null);
   const chartWrapperRef = useRef<HTMLDivElement>(null);
+  const touchHoldRef = useRef<{ x: number; y: number; timeoutId: number | null } | null>(null);
   const panStateRef = useRef<{ startX: number; startViewStart: number; startViewEnd: number } | null>(null);
   const pinchStateRef = useRef<{ startDistance: number; startViewStart: number; startViewEnd: number } | null>(null);
   const panRafRef = useRef<number | null>(null);
@@ -119,6 +120,8 @@ export function AllTimeChart({ data, milestones, onHover }: AllTimeChartProps) {
     () => typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches,
     []
   );
+  const TOUCH_HOLD_MS = 140;
+  const MOVE_CANCEL_THRESHOLD = 10;
 
   const chartData = useMemo(() => {
     return data.map((d, index) => ({
@@ -343,6 +346,14 @@ export function AllTimeChart({ data, milestones, onHover }: AllTimeChartProps) {
     updateFromClientX(clientX);
   }, [updateFromClientX]);
 
+  const clearTouchHold = useCallback(() => {
+    if (touchHoldRef.current?.timeoutId) {
+      window.clearTimeout(touchHoldRef.current.timeoutId);
+    }
+    touchHoldRef.current = null;
+  }, []);
+
+
   const clampViewRange = useCallback((start: number, end: number) => {
     let newStart = start;
     let newEnd = end;
@@ -379,6 +390,19 @@ export function AllTimeChart({ data, milestones, onHover }: AllTimeChartProps) {
     panStateRef.current = { startX: clientX, startViewStart: viewStart, startViewEnd: viewEnd };
     setIsPanning(true);
   }, [isZoomed, viewStart, viewEnd, isZooming, isScrubbing]);
+
+  const scheduleTouchHold = useCallback((clientX: number, clientY: number) => {
+    clearTouchHold();
+    const timeoutId = window.setTimeout(() => {
+      touchHoldRef.current = null;
+      if (isZoomed && !isZooming) {
+        handlePanStart(clientX);
+      } else {
+        handleScrubStart(clientX);
+      }
+    }, TOUCH_HOLD_MS);
+    touchHoldRef.current = { x: clientX, y: clientY, timeoutId };
+  }, [clearTouchHold, handlePanStart, handleScrubStart, isZoomed, isZooming, TOUCH_HOLD_MS]);
 
   const handleWheel = useCallback((event: React.WheelEvent<HTMLDivElement>) => {
     if (!chartWrapperRef.current || fullRangeMs <= 0) return;
@@ -445,6 +469,8 @@ export function AllTimeChart({ data, milestones, onHover }: AllTimeChartProps) {
       window.removeEventListener('pointercancel', handleGlobalEnd);
     };
   }, [isScrubbing, updateFromClientX, handleMouseLeave]);
+
+  useEffect(() => () => clearTouchHold(), [clearTouchHold]);
 
   useEffect(() => {
     if (!isPanning) return;
@@ -613,7 +639,14 @@ export function AllTimeChart({ data, milestones, onHover }: AllTimeChartProps) {
       <div
         className="absolute left-0 right-0 top-[-16px] bottom-[-24px] z-20"
         style={{ pointerEvents: isCoarsePointer || isScrubbing ? 'auto' : 'none' }}
-        onPointerDown={(event) => (isZoomed && isCoarsePointer ? handlePanStart(event.clientX, event) : handleScrubStart(event.clientX, event))}
+        onPointerDown={(event) => {
+          if (event.pointerType === 'touch') return;
+          if (isZoomed && isCoarsePointer) {
+            handlePanStart(event.clientX, event);
+          } else {
+            handleScrubStart(event.clientX, event);
+          }
+        }}
         onTouchStartCapture={(event) => {
           if (event.touches.length >= 2) {
             if (isPanning || isScrubbing) return;
@@ -628,36 +661,67 @@ export function AllTimeChart({ data, milestones, onHover }: AllTimeChartProps) {
             }
             return;
           }
-          if (isZoomed && !isZooming) {
-            handlePanStart(event.touches[0].clientX, event);
-          } else {
-            handleScrubStart(event.touches[0].clientX, event);
-          }
+          scheduleTouchHold(event.touches[0].clientX, event.touches[0].clientY);
         }}
         onTouchMoveCapture={(event) => {
-          if (!pinchStateRef.current || event.touches.length < 2) return;
-          event.preventDefault();
-          event.stopPropagation();
-          const dx = event.touches[0].clientX - event.touches[1].clientX;
-          const dy = event.touches[0].clientY - event.touches[1].clientY;
-          const distance = Math.hypot(dx, dy);
-          const ratio = pinchStateRef.current.startDistance > 0 ? distance / pinchStateRef.current.startDistance : 1;
-          const targetWindow = (pinchStateRef.current.startViewEnd - pinchStateRef.current.startViewStart) / ratio;
-          const newWindow = Math.max(minWindowMs, Math.min(fullRangeMs, targetWindow));
-          const center = (pinchStateRef.current.startViewStart + pinchStateRef.current.startViewEnd) / 2;
-          const newStart = center - newWindow / 2;
-          const newEnd = center + newWindow / 2;
-          const clamped = clampViewRange(newStart, newEnd);
-          setViewStart(clamped.start);
-          setViewEnd(clamped.end);
+          if (pinchStateRef.current && event.touches.length >= 2) {
+            event.preventDefault();
+            event.stopPropagation();
+            const dx = event.touches[0].clientX - event.touches[1].clientX;
+            const dy = event.touches[0].clientY - event.touches[1].clientY;
+            const distance = Math.hypot(dx, dy);
+            const ratio = pinchStateRef.current.startDistance > 0 ? distance / pinchStateRef.current.startDistance : 1;
+            const targetWindow = (pinchStateRef.current.startViewEnd - pinchStateRef.current.startViewStart) / ratio;
+            const newWindow = Math.max(minWindowMs, Math.min(fullRangeMs, targetWindow));
+            const center = (pinchStateRef.current.startViewStart + pinchStateRef.current.startViewEnd) / 2;
+            const newStart = center - newWindow / 2;
+            const newEnd = center + newWindow / 2;
+            const clamped = clampViewRange(newStart, newEnd);
+            setViewStart(clamped.start);
+            setViewEnd(clamped.end);
+            return;
+          }
+
+          if (event.touches.length !== 1) return;
+          const touch = event.touches[0];
+          if (touchHoldRef.current) {
+            const deltaX = touch.clientX - touchHoldRef.current.x;
+            const deltaY = touch.clientY - touchHoldRef.current.y;
+            if (Math.abs(deltaX) > MOVE_CANCEL_THRESHOLD || Math.abs(deltaY) > MOVE_CANCEL_THRESHOLD) {
+              clearTouchHold();
+            }
+          }
+
+          if (isScrubbing) {
+            event.preventDefault();
+            event.stopPropagation();
+            updateFromClientX(touch.clientX);
+          } else if (isPanning) {
+            event.preventDefault();
+            event.stopPropagation();
+          }
         }}
-        onTouchEndCapture={() => {
+        onTouchEndCapture={(event) => {
+          clearTouchHold();
           pinchStateRef.current = null;
           setIsZooming(false);
+          if (isScrubbing) {
+            if ('preventDefault' in event) event.preventDefault();
+            if ('stopPropagation' in event) event.stopPropagation();
+            setIsScrubbing(false);
+            handleMouseLeave();
+          }
         }}
-        onTouchCancelCapture={() => {
+        onTouchCancelCapture={(event) => {
+          clearTouchHold();
           pinchStateRef.current = null;
           setIsZooming(false);
+          if (isScrubbing) {
+            if ('preventDefault' in event) event.preventDefault();
+            if ('stopPropagation' in event) event.stopPropagation();
+            setIsScrubbing(false);
+            handleMouseLeave();
+          }
         }}
       />
       <ResponsiveContainer width="100%" height="100%">

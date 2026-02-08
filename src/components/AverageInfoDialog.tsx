@@ -5,12 +5,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 
-const COLORS = {
-  muted: '#595A5F',
-  white: '#FFFFFF',
-  card: '#161616',
-};
-
 interface AverageInfoDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -56,11 +50,11 @@ export function AverageInfoDialog({ open, onOpenChange, currentAverage, totalHou
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm border-border/30" style={{ backgroundColor: '#0D0D0D' }}>
+      <DialogContent className="max-w-sm border-border/30 bg-card text-foreground">
         <DialogHeader>
           <DialogTitle className="text-base font-semibold">Increase Daily Average</DialogTitle>
         </DialogHeader>
-        <p className="text-xs mb-4" style={{ color: COLORS.muted }}>
+        <p className="text-xs mb-4 text-muted-foreground">
           Minutes you need to play today to increase your lifetime daily average:
         </p>
         <div className="space-y-2">
@@ -69,11 +63,10 @@ export function AverageInfoDialog({ open, onOpenChange, currentAverage, totalHou
             return (
               <div
                 key={seconds}
-                className="flex items-center justify-between px-3 py-2.5 rounded-lg"
-                style={{ backgroundColor: COLORS.card }}
+                className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-muted"
               >
-                <span className="text-sm" style={{ color: COLORS.muted }}>{label}</span>
-                <span className="text-sm font-semibold" style={{ color: COLORS.white }}>
+                <span className="text-sm text-muted-foreground">{label}</span>
+                <span className="text-sm font-semibold text-foreground">
                   {formatMinutesAndSeconds(totalSeconds)}
                 </span>
               </div>

@@ -68,6 +68,8 @@ export function TenKOverview({ analytics, mirrorTimeSeconds = 0 }: TenKOverviewP
   // Add mirror time to total hours for display
   const mirrorTimeHours = mirrorTimeSeconds / 3600;
   const adjustedTotalHours = analytics.totalHours + mirrorTimeHours;
+  const averageBump = analytics.totalDays > 0 ? mirrorTimeHours / analytics.totalDays : 0;
+  const adjustedDailyAverage = analytics.currentAverage + averageBump;
 
   return (
     <div className="pb-8">
@@ -75,7 +77,7 @@ export function TenKOverview({ analytics, mirrorTimeSeconds = 0 }: TenKOverviewP
       <VerticalTimeline
         milestones={timelineMilestones}
         currentHours={adjustedTotalHours}
-        dailyAverage={analytics.currentAverage}
+        dailyAverage={adjustedDailyAverage}
         startDate={analytics.startDate}
       />
     </div>

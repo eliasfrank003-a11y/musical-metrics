@@ -19,11 +19,12 @@ interface VerticalTimelineProps {
 }
 
 const COLORS = {
-  muted: '#595A5F',
-  green: '#09C651',
+  muted: 'hsl(var(--muted-foreground))',
+  green: 'hsl(var(--chart-positive))',
   purple: '#A855F7',
   yellow: '#FACC15',
-  line: '#2A2A2A',
+  line: 'hsl(var(--border))',
+  foreground: 'hsl(var(--foreground))',
 };
 
 export function VerticalTimeline({ milestones, currentHours, dailyAverage, startDate }: VerticalTimelineProps) {
@@ -312,7 +313,7 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
       <div className="mb-6">
         <div 
           className="relative w-full h-3 rounded-full overflow-hidden"
-          style={{ backgroundColor: 'rgba(89, 90, 95, 0.3)' }}
+          style={{ backgroundColor: 'hsl(var(--muted) / 0.4)' }}
         >
           <div 
             className="absolute left-0 top-0 h-full rounded-full transition-all duration-500"
@@ -328,7 +329,7 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
               className="absolute top-0 h-full w-px z-10"
               style={{ 
                 left: `${percent}%`,
-                backgroundColor: 'rgba(255, 255, 255, 0.25)',
+                backgroundColor: 'hsl(var(--foreground) / 0.15)',
               }}
             />
           ))}
@@ -384,7 +385,7 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
               if (node.isFuture) {
                 if (node.is10k || node.is1k) return COLORS.purple;
                 // NEXT GOAL uses white color
-                return '#FFFFFF';
+                return COLORS.foreground;
               }
               if (node.isStart) return COLORS.muted;
               return 'inherit';
@@ -420,7 +421,7 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
                   />
                   
                   {/* Content */}
-                  <div className={`flex-1 min-w-0 ${node.isFuture ? 'px-4 py-3 rounded-xl flex items-center' : ''}`} style={node.isFuture ? { backgroundColor: 'rgba(89, 90, 95, 0.15)', border: `1px solid rgba(89, 90, 95, 0.3)` } : {}}>
+                  <div className={`flex-1 min-w-0 ${node.isFuture ? 'px-4 py-3 rounded-xl flex items-center bg-muted/40 border border-border/40' : ''}`}>
                     <div className={`flex ${node.isFuture ? 'items-center w-full' : 'items-baseline'} justify-between gap-4`}>
                       <div className="flex-1">
                         {node.isFuture && (
@@ -432,7 +433,7 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
                           node.date && (
                             <p 
                               className="text-sm font-medium"
-                              style={{ color: '#FFFFFF' }}
+                              style={{ color: COLORS.foreground }}
                             >
                               {formatDate(node.date)}
                             </p>
@@ -448,7 +449,7 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
                         ) : (
                           <p 
                             className={node.isFuture ? 'text-xl font-bold leading-none' : 'font-medium'}
-                            style={{ color: node.is1k ? '#FFFFFF' : getTitleColor() }}
+                            style={{ color: node.is1k ? COLORS.foreground : getTitleColor() }}
                           >
                             {node.title}
                           </p>
@@ -538,7 +539,7 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
             id="teachers-toggle"
             checked={showTeachers}
             onCheckedChange={setShowTeachers}
-            className="data-[state=checked]:bg-white/80"
+            className="data-[state=checked]:bg-foreground/80"
           />
           <label 
             htmlFor="teachers-toggle" 
@@ -553,7 +554,7 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
             id="other-toggle"
             checked={showOther}
             onCheckedChange={setShowOther}
-            className="data-[state=checked]:bg-white/80"
+            className="data-[state=checked]:bg-foreground/80"
           />
           <label 
             htmlFor="other-toggle" 

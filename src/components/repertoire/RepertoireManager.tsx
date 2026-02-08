@@ -25,11 +25,6 @@ interface RepertoireManagerProps {
   onEditingStateChange?: (isEditing: boolean) => void;
 }
 
-const COLORS = {
-  muted: '#595A5F',
-  red: '#FD4136',
-};
-
 export function RepertoireManager({
   items,
   onStatusChange,

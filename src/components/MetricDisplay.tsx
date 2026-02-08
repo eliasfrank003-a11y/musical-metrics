@@ -4,10 +4,10 @@ import { format } from 'date-fns';
 
 // Trade Republic exact colors
 const COLORS = {
-  positive: '#09C651',
-  negative: '#FD4136',
-  muted: '#595A5F',
-  white: '#FFFFFF',
+  positive: 'hsl(var(--chart-positive))',
+  negative: 'hsl(var(--chart-negative))',
+  muted: 'hsl(var(--muted-foreground))',
+  foreground: 'hsl(var(--foreground))',
 };
 
 interface MetricDisplayProps {
@@ -158,7 +158,7 @@ export function MetricDisplay({
       <div className="flex items-center gap-3 relative">
         <h1 
           className="text-4xl font-bold tracking-tight transition-all duration-150"
-          style={{ color: COLORS.white }}
+          style={{ color: COLORS.foreground }}
         >
           {formatHoursMinutes(displayValue)}
         </h1>
@@ -175,7 +175,7 @@ export function MetricDisplay({
               className="h-full rounded-full transition-all duration-100"
               style={{ 
                 width: `${averageProgressPercent}%`,
-                backgroundColor: COLORS.white,
+                backgroundColor: COLORS.foreground,
               }}
             />
           </div>

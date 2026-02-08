@@ -20,21 +20,24 @@ interface IntradayChartProps {
 
 // Trade Republic exact colors
 const COLORS = {
-  positive: '#09C651',
-  negative: '#FD4136',
-  muted: '#595A5F',
-  unreached: '#161616',
-  white: '#FFFFFF',
+  positive: 'hsl(var(--chart-positive))',
+  negative: 'hsl(var(--chart-negative))',
+  muted: 'hsl(var(--muted-foreground))',
+  unreached: 'hsl(var(--muted))',
+  white: 'hsl(var(--foreground))',
 };
 
 export function IntradayChart({ data, baselineAverage, onHover, isMirrorActive = false }: IntradayChartProps) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [isScrubbing, setIsScrubbing] = useState(false);
   const chartWrapperRef = useRef<HTMLDivElement>(null);
+  const touchHoldRef = useRef<{ x: number; y: number; timeoutId: number | null } | null>(null);
   const isCoarsePointer = useMemo(
     () => typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches,
     []
   );
+  const SCRUB_HOLD_MS = 140;
+  const MOVE_CANCEL_THRESHOLD = 10;
 
   const chartData = useMemo(() => {
     // Filter out data before 6am
@@ -173,6 +176,53 @@ export function IntradayChart({ data, baselineAverage, onHover, isMirrorActive =
     handleMouseLeave();
   }, [handleMouseLeave]);
 
+  const clearTouchHold = useCallback(() => {
+    if (touchHoldRef.current?.timeoutId) {
+      window.clearTimeout(touchHoldRef.current.timeoutId);
+    }
+    touchHoldRef.current = null;
+  }, []);
+
+  const scheduleTouchScrub = useCallback((clientX: number, clientY: number) => {
+    clearTouchHold();
+    const timeoutId = window.setTimeout(() => {
+      touchHoldRef.current = null;
+      setIsScrubbing(true);
+      updateFromClientX(clientX);
+    }, SCRUB_HOLD_MS);
+    touchHoldRef.current = { x: clientX, y: clientY, timeoutId };
+  }, [clearTouchHold, updateFromClientX, SCRUB_HOLD_MS]);
+
+  const handleTouchStart = useCallback((event: React.TouchEvent) => {
+    if (event.touches.length !== 1) return;
+    const touch = event.touches[0];
+    scheduleTouchScrub(touch.clientX, touch.clientY);
+  }, [scheduleTouchScrub]);
+
+  const handleTouchMove = useCallback((event: React.TouchEvent) => {
+    if (event.touches.length !== 1) return;
+    const touch = event.touches[0];
+    if (isScrubbing) {
+      handleScrubMove(touch.clientX, event);
+      return;
+    }
+    if (!touchHoldRef.current) return;
+    const deltaX = touch.clientX - touchHoldRef.current.x;
+    const deltaY = touch.clientY - touchHoldRef.current.y;
+    if (Math.abs(deltaX) > MOVE_CANCEL_THRESHOLD || Math.abs(deltaY) > MOVE_CANCEL_THRESHOLD) {
+      clearTouchHold();
+    }
+  }, [clearTouchHold, handleScrubMove, isScrubbing, MOVE_CANCEL_THRESHOLD]);
+
+  const handleTouchEnd = useCallback((event: React.TouchEvent) => {
+    clearTouchHold();
+    if (isScrubbing) {
+      handleScrubEnd(event);
+    }
+  }, [clearTouchHold, handleScrubEnd, isScrubbing]);
+
+  useEffect(() => () => clearTouchHold(), [clearTouchHold]);
+
   // Attach global listeners when scrubbing to track finger anywhere on screen
   useEffect(() => {
     if (!isScrubbing) return;
@@ -287,8 +337,14 @@ export function IntradayChart({ data, baselineAverage, onHover, isMirrorActive =
       <div
         className="absolute left-0 right-0 top-[-16px] bottom-[-24px] z-20"
         style={{ pointerEvents: isCoarsePointer || isScrubbing ? 'auto' : 'none' }}
-        onPointerDown={(event) => handleScrubStart(event.clientX, event)}
-        onTouchStartCapture={(event) => handleScrubStart(event.touches[0].clientX, event)}
+        onPointerDown={(event) => {
+          if (event.pointerType === 'touch') return;
+          handleScrubStart(event.clientX, event);
+        }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
       />
       <ResponsiveContainer width="100%" height="100%">
         <LineChart 

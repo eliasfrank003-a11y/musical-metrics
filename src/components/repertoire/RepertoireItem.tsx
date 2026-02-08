@@ -33,12 +33,6 @@ interface RepertoireItemProps {
   isDragging?: boolean;
 }
 
-const COLORS = {
-  muted: '#595A5F',
-  card: '#161616',
-  divider: '#2A2A2A',
-};
-
 function formatStartedAt(startedAt: string | null): string | null {
   if (!startedAt) return null;
   
@@ -139,24 +133,20 @@ export function RepertoireItem({
         ) : hasLabel ? (
           <>
             <div 
-              className="flex-1 h-px"
-              style={{ backgroundColor: COLORS.divider }}
+              className="flex-1 h-px bg-border"
             />
             <span 
-              className="text-xs font-medium px-2"
-              style={{ color: COLORS.muted }}
+              className="text-xs font-medium px-2 text-muted-foreground"
             >
               {item.divider_label}
             </span>
             <div 
-              className="flex-1 h-px"
-              style={{ backgroundColor: COLORS.divider }}
+              className="flex-1 h-px bg-border"
             />
           </>
         ) : (
           <div 
-            className="flex-1 h-px"
-            style={{ backgroundColor: COLORS.divider }}
+            className="flex-1 h-px bg-border"
           />
         )}
         {isEditMode && !isEditing && (
@@ -266,8 +256,7 @@ export function RepertoireItem({
             <p className="font-medium truncate">{item.title}</p>
             {item.started_at && (
               <p 
-                className="text-xs truncate"
-                style={{ color: COLORS.muted }}
+                className="text-xs truncate text-muted-foreground"
               >
                 {formatStartedAt(item.started_at)}
               </p>
