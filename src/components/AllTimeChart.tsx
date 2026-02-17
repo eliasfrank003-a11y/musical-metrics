@@ -255,13 +255,15 @@ export function AllTimeChart({ data, milestones, onHover }: AllTimeChartProps) {
     );
   }, [chartData, displayData.length, viewStart, viewEnd]);
 
-  // Calculate the data range
-  const { range } = useMemo(() => {
-    if (chartData.length === 0) return { range: 0 };
+  // Keep Y-scale stable while panning by using full-range min/max
+  const { range, yDomain } = useMemo(() => {
+    if (chartData.length === 0) return { range: 0, yDomain: [0, 0] as [number, number] };
     const values = chartData.map(d => d.averageHours);
     const min = Math.min(...values);
     const max = Math.max(...values);
-    return { range: max - min };
+    const dataRange = max - min;
+    const padding = dataRange > 0 ? dataRange * 0.08 : Math.abs(min) * 0.05;
+    return { range: dataRange, yDomain: [min - padding, max + padding] as [number, number] };
   }, [chartData]);
 
   const formatYAxis = useCallback((value: number) => {
@@ -752,7 +754,7 @@ export function AllTimeChart({ data, milestones, onHover }: AllTimeChartProps) {
             interval={0}
           />
           <YAxis
-            domain={['dataMin', 'dataMax']}
+            domain={yDomain}
             tickCount={4}
             allowDecimals={true}
             tickFormatter={formatYAxis}
