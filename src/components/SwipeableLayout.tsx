@@ -143,16 +143,14 @@ export function SwipeableLayout({ leftView, rightView, onSync, onMirrorTimeChang
   const SWIPE_THRESHOLD = 40;
   const DIRECTION_LOCK_THRESHOLD = 8;
 
-  const isInteractiveTarget = (target: EventTarget | null): boolean => {
+  const isSwipeIgnoredTarget = (target: EventTarget | null): boolean => {
     if (!(target instanceof Element)) return false;
-    return !!target.closest(
-      'button, a, input, textarea, select, [role="button"], [role="link"], [data-swipe-ignore]'
-    );
+    return !!target.closest('input, textarea, select, [data-swipe-ignore]');
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
     if (isSwipeDisabled) return;
-    if (isInteractiveTarget(e.target)) return;
+    if (isSwipeIgnoredTarget(e.target)) return;
     if (e.touches.length !== 1) return;
     touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
     axisLockRef.current = null;

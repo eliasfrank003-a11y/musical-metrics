@@ -241,6 +241,12 @@ export function useRepertoire() {
     fetchItems();
   }, [fetchItems]);
 
+  useEffect(() => {
+    const handler = () => fetchItems();
+    window.addEventListener('repertoire:refresh', handler);
+    return () => window.removeEventListener('repertoire:refresh', handler);
+  }, [fetchItems]);
+
   return {
     items,
     isLoading,
