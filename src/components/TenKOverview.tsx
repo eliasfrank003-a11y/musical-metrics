@@ -33,7 +33,7 @@ export function TenKOverview({ analytics, mirrorTimeSeconds = 0 }: TenKOverviewP
     };
 
     const y1Date = new Date('2025-02-01T00:00:00');
-    const y2Date = startOfDay(new Date());
+    const y2Date = new Date('2026-02-01T00:00:00');
 
     const synthetic = [
       {
