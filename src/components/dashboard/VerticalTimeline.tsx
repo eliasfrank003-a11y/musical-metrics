@@ -462,7 +462,7 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
                             {node.isStart 
                               ? formatDate(node.date) 
                               : node.isCustom 
-                                ? `h ${node.hours} • ${formatTimeAgo(node.date)}`
+                                ? `${formatTimeAgo(node.date)} • h ${node.hours}`
                                 : formatTimeAgo(node.date)}
                           </p>
                         )}
