@@ -280,7 +280,7 @@ export function RepertoireManager({
           </div>
         ) : filteredItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 px-4">
-            <p style={{ color: COLORS.muted }} className="text-sm text-center">
+            <p className="text-sm text-center text-muted-foreground">
               {showRedOnly 
                 ? 'No pieces in your Red List' 
                 : 'No repertoire items yet'}
