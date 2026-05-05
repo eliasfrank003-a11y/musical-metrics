@@ -77,6 +77,14 @@ export function useMilestones() {
 
       if (error) throw error;
       setMilestones(data || []);
+
+      // Ensure every existing interval milestone has a matching repertoire divider
+      const intervalHours = (data || [])
+        .filter((m: any) => m.milestone_type === 'interval')
+        .map((m: any) => m.hours);
+      if (intervalHours.length > 0) {
+        await createRepertoireDividersForMilestones(intervalHours);
+      }
     } catch (error) {
       console.error('[Milestones] Error fetching:', error);
       toast({
