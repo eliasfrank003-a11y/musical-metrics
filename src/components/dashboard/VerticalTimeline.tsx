@@ -444,7 +444,7 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
                               {formatDate(node.date)}
                             </p>
                           )
-                        ) : node.isCustom && node.description ? (
+                        ) : !node.isFuture && !node.isStart && !node.isCurrent ? (
                           <button
                             onClick={() => setExpandedNodeId(expandedNodeId === node.id ? null : node.id)}
                             className={`text-left hover:opacity-80 transition-opacity ${node.isFuture ? 'text-xl font-bold' : 'font-medium'}`}
