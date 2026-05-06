@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { format, addDays, differenceInDays, differenceInMonths, differenceInYears } from 'date-fns';
 import { Switch } from '@/components/ui/switch';
+import { Pencil, Check, X } from 'lucide-react';
 
 interface Milestone {
   id: number;
@@ -16,6 +17,7 @@ interface VerticalTimelineProps {
   currentHours: number;
   dailyAverage: number;
   startDate: Date;
+  onSaveDescription?: (nodeId: string, milestoneId: number, description: string) => Promise<void> | void;
 }
 
 const COLORS = {
@@ -27,8 +29,10 @@ const COLORS = {
   foreground: 'hsl(var(--foreground))',
 };
 
-export function VerticalTimeline({ milestones, currentHours, dailyAverage, startDate }: VerticalTimelineProps) {
+export function VerticalTimeline({ milestones, currentHours, dailyAverage, startDate, onSaveDescription }: VerticalTimelineProps) {
   const [expandedNodeId, setExpandedNodeId] = useState<string | null>(null);
+  const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
+  const [draftText, setDraftText] = useState('');
   const [showTeachers, setShowTeachers] = useState(() => {
     if (typeof window === 'undefined') return true;
     const stored = window.localStorage.getItem('timeline:showTeachers');
