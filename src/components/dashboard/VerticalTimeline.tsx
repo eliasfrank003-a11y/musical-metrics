@@ -70,6 +70,7 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
 
   type TimelineNode = {
     id: string;
+    milestoneId?: number;
     hours: number;
     title: string;
     date: Date | null;
@@ -174,6 +175,7 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
       
       timelineNodes.push({
         id: `achieved-${m.id}`,
+        milestoneId: m.id,
         hours: m.hours,
         title: isCustom ? customTitle : formatHoursTitle(m.hours),
         date: new Date(m.achieved_at),
