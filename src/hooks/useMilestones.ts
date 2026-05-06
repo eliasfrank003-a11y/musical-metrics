@@ -170,5 +170,23 @@ export function useMilestones() {
     fetchMilestones();
   }, [fetchMilestones]);
 
-  return { milestones, isLoading, refetch: fetchMilestones, checkAndCreateMilestones };
+  const updateMilestoneDescription = useCallback(async (milestoneId: number, description: string) => {
+    try {
+      const { error } = await supabase
+        .from('milestones')
+        .update({ description })
+        .eq('id', milestoneId);
+      if (error) throw error;
+      await fetchMilestones();
+    } catch (error) {
+      console.error('[Milestones] Error updating description:', error);
+      toast({
+        title: 'Error saving notes',
+        description: error instanceof Error ? error.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    }
+  }, [fetchMilestones, toast]);
+
+  return { milestones, isLoading, refetch: fetchMilestones, checkAndCreateMilestones, updateMilestoneDescription };
 }
