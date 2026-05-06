@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { format, addDays, differenceInDays, differenceInMonths, differenceInYears } from 'date-fns';
 import { Switch } from '@/components/ui/switch';
+import { Pencil, Check, X } from 'lucide-react';
 
 interface Milestone {
   id: number;
@@ -16,6 +17,7 @@ interface VerticalTimelineProps {
   currentHours: number;
   dailyAverage: number;
   startDate: Date;
+  onSaveDescription?: (nodeId: string, milestoneId: number, description: string) => Promise<void> | void;
 }
 
 const COLORS = {
@@ -27,8 +29,10 @@ const COLORS = {
   foreground: 'hsl(var(--foreground))',
 };
 
-export function VerticalTimeline({ milestones, currentHours, dailyAverage, startDate }: VerticalTimelineProps) {
+export function VerticalTimeline({ milestones, currentHours, dailyAverage, startDate, onSaveDescription }: VerticalTimelineProps) {
   const [expandedNodeId, setExpandedNodeId] = useState<string | null>(null);
+  const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
+  const [draftText, setDraftText] = useState('');
   const [showTeachers, setShowTeachers] = useState(() => {
     if (typeof window === 'undefined') return true;
     const stored = window.localStorage.getItem('timeline:showTeachers');
@@ -66,6 +70,7 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
 
   type TimelineNode = {
     id: string;
+    milestoneId?: number;
     hours: number;
     title: string;
     date: Date | null;
@@ -170,6 +175,7 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
       
       timelineNodes.push({
         id: `achieved-${m.id}`,
+        milestoneId: m.id,
         hours: m.hours,
         title: isCustom ? customTitle : formatHoursTitle(m.hours),
         date: new Date(m.achieved_at),
@@ -438,7 +444,7 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
                               {formatDate(node.date)}
                             </p>
                           )
-                        ) : node.isCustom && node.description ? (
+                        ) : !node.isFuture && !node.isStart && !node.isCurrent ? (
                           <button
                             onClick={() => setExpandedNodeId(expandedNodeId === node.id ? null : node.id)}
                             className={`text-left hover:opacity-80 transition-opacity ${node.isFuture ? 'text-xl font-bold' : 'font-medium'}`}
@@ -509,21 +515,78 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
                   </div>
                 </div>
 
-                {/* Description block for custom milestones - only show when expanded */}
-                {node.description && expandedNodeId === node.id && (
-                  <div 
+                {/* Description block - shown when expanded for any non-future/non-start node */}
+                {expandedNodeId === node.id && !node.isFuture && !node.isStart && !node.isCurrent && (
+                  <div
                     className="ml-[19px] pl-4 py-2 border-l"
                     style={{ borderColor: COLORS.line }}
                   >
-                    {node.description.split('\n').map((line, i) => (
-                      <p 
-                        key={i}
-                        className="text-xs"
-                        style={{ color: COLORS.muted }}
-                      >
-                        {line || '\u00A0'}
-                      </p>
-                    ))}
+                    {editingNodeId === node.id ? (
+                      <div className="flex flex-col gap-2">
+                        <textarea
+                          value={draftText}
+                          onChange={(e) => setDraftText(e.target.value)}
+                          rows={4}
+                          className="w-full text-xs bg-transparent border rounded p-2 focus:outline-none focus:ring-1"
+                          style={{ borderColor: COLORS.line, color: COLORS.foreground }}
+                          autoFocus
+                        />
+                        <div className="flex gap-2 justify-end">
+                          <button
+                            onClick={() => setEditingNodeId(null)}
+                            className="text-xs flex items-center gap-1 px-2 py-1 rounded hover:opacity-80"
+                            style={{ color: COLORS.muted }}
+                          >
+                            <X className="w-3 h-3" /> Cancel
+                          </button>
+                          <button
+                            onClick={async () => {
+                              if (onSaveDescription && node.milestoneId !== undefined) {
+                                await onSaveDescription(node.id, node.milestoneId, draftText);
+                              }
+                              setEditingNodeId(null);
+                            }}
+                            className="text-xs flex items-center gap-1 px-2 py-1 rounded hover:opacity-80"
+                            style={{ color: COLORS.green }}
+                          >
+                            <Check className="w-3 h-3" /> Save
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex justify-between items-start gap-2">
+                        <div className="flex-1">
+                          {node.description ? (
+                            node.description.split('\n').map((line, i) => (
+                              <p
+                                key={i}
+                                className="text-xs"
+                                style={{ color: COLORS.muted }}
+                              >
+                                {line || '\u00A0'}
+                              </p>
+                            ))
+                          ) : (
+                            <p className="text-xs italic" style={{ color: COLORS.muted }}>
+                              No notes yet
+                            </p>
+                          )}
+                        </div>
+                        {node.milestoneId !== undefined && node.milestoneId >= 0 && (
+                          <button
+                            onClick={() => {
+                              setDraftText(node.description || '');
+                              setEditingNodeId(node.id);
+                            }}
+                            className="flex-shrink-0 hover:opacity-80"
+                            style={{ color: COLORS.muted }}
+                            aria-label="Edit notes"
+                          >
+                            <Pencil className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

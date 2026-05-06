@@ -10,7 +10,7 @@ interface TenKOverviewProps {
 }
 
 export function TenKOverview({ analytics, mirrorTimeSeconds = 0 }: TenKOverviewProps) {
-  const { milestones, checkAndCreateMilestones } = useMilestones();
+  const { milestones, checkAndCreateMilestones, updateMilestoneDescription } = useMilestones();
 
   // Check for new 100h milestones when analytics loads
   useEffect(() => {
@@ -93,6 +93,9 @@ export function TenKOverview({ analytics, mirrorTimeSeconds = 0 }: TenKOverviewP
         currentHours={adjustedTotalHours}
         dailyAverage={adjustedDailyAverage}
         startDate={analytics.startDate}
+        onSaveDescription={async (_nodeId, milestoneId, description) => {
+          await updateMilestoneDescription(milestoneId, description);
+        }}
       />
     </div>
   );
