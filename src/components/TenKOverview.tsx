@@ -2,7 +2,7 @@ import { useEffect, useMemo } from 'react';
 import { VerticalTimeline } from '@/components/dashboard/VerticalTimeline';
 import { useMilestones } from '@/hooks/useMilestones';
 import { AnalyticsResult } from '@/lib/practiceAnalytics';
-import { format, startOfDay } from 'date-fns';
+import { format, startOfDay, differenceInDays } from 'date-fns';
 
 interface TenKOverviewProps {
   analytics: AnalyticsResult | null;
@@ -32,6 +32,12 @@ export function TenKOverview({ analytics, mirrorTimeSeconds = 0 }: TenKOverviewP
       return fallback ? fallback.cumulativeHours : 0;
     };
 
+    const computeAverageAt = (target: Date) => {
+      const cum = getCumulativeAt(target);
+      const days = Math.max(1, differenceInDays(startOfDay(target), startOfDay(analytics.startDate)) + 1);
+      return cum / days;
+    };
+
     const y1Date = new Date('2025-02-01T00:00:00');
     const y2Date = new Date('2026-02-01T00:00:00');
 
@@ -40,7 +46,7 @@ export function TenKOverview({ analytics, mirrorTimeSeconds = 0 }: TenKOverviewP
         id: -1001,
         hours: Math.round(getCumulativeAt(y1Date)),
         achieved_at: y1Date.toISOString(),
-        average_at_milestone: null,
+        average_at_milestone: computeAverageAt(y1Date),
         description: 'Y1',
         milestone_type: 'custom',
       },
@@ -48,13 +54,21 @@ export function TenKOverview({ analytics, mirrorTimeSeconds = 0 }: TenKOverviewP
         id: -1002,
         hours: Math.round(getCumulativeAt(y2Date)),
         achieved_at: y2Date.toISOString(),
-        average_at_milestone: null,
+        average_at_milestone: computeAverageAt(y2Date),
         description: 'Y2',
         milestone_type: 'custom',
       },
     ];
 
-    return [...milestones, ...synthetic].sort((a, b) => a.hours - b.hours);
+    // Backfill averages for milestones missing them (e.g. first Florence)
+    const enriched = milestones.map(m => {
+      if (m.average_at_milestone == null && m.achieved_at) {
+        return { ...m, average_at_milestone: computeAverageAt(new Date(m.achieved_at)) };
+      }
+      return m;
+    });
+
+    return [...enriched, ...synthetic].sort((a, b) => a.hours - b.hours);
   }, [analytics, milestones]);
 
   if (!analytics) {
