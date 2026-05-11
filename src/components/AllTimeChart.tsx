@@ -276,16 +276,40 @@ export function AllTimeChart({ data, milestones, onHover }: AllTimeChartProps) {
     );
   }, [chartData, displayData.length, viewStart, viewEnd]);
 
-  // Keep Y-scale stable while panning by using full-range min/max
-  const { range, yDomain } = useMemo(() => {
-    if (chartData.length === 0) return { range: 0, yDomain: [0, 0] as [number, number] };
-    const values = chartData.map(d => d.averageHours);
-    const min = Math.min(...values);
-    const max = Math.max(...values);
-    const dataRange = max - min;
-    const padding = dataRange > 0 ? dataRange * 0.08 : Math.abs(min) * 0.05;
-    return { range: dataRange, yDomain: [min - padding, max + padding] as [number, number] };
-  }, [chartData]);
+  // Y domain is locked per zoom-level selection so panning never shifts the axis.
+  // Computed from ~2x the zoom duration of recent data, giving some headroom on either side.
+  const [lockedYDomain, setLockedYDomain] = useState<[number, number] | null>(null);
+
+  useEffect(() => {
+    if (chartData.length === 0) return;
+    const computeY = (startMs: number, endMs: number): [number, number] | null => {
+      const win = chartData.filter(d => d.timestamp >= startMs && d.timestamp <= endMs);
+      if (win.length === 0) return null;
+      const values = win.map(d => d.averageHours);
+      const min = Math.min(...values);
+      const max = Math.max(...values);
+      const range = max - min;
+      const padding = range > 0 ? range * 0.15 : Math.max(Math.abs(min) * 0.05, 0.05);
+      return [min - padding, max + padding];
+    };
+
+    if (zoomOption === 'ALL') {
+      setLockedYDomain(computeY(dataMin, dataMax) ?? [0, 1]);
+      return;
+    }
+
+    const durationMs =
+      zoomOption === '1M' ? 30 * 86400000
+      : zoomOption === '6M' ? 182 * 86400000
+      : 365 * 86400000;
+    const contextMs = durationMs * 2;
+    const endTime = dataMax;
+    const startTime = Math.max(endTime - contextMs, dataMin);
+    setLockedYDomain(computeY(startTime, endTime) ?? [0, 1]);
+  }, [zoomOption, chartData, dataMin, dataMax]);
+
+  const yDomain = lockedYDomain ?? [0, 1] as [number, number];
+  const range = yDomain[1] - yDomain[0];
 
   const formatYAxis = useCallback((value: number) => {
     const totalSeconds = Math.round(value * 3600);
@@ -325,27 +349,14 @@ export function AllTimeChart({ data, milestones, onHover }: AllTimeChartProps) {
     );
   }, [formatXAxisTick, xAxisLabels]);
 
-  const handleMouseMove = useCallback((state: any) => {
-    if (state?.activeTooltipIndex !== undefined) {
-      const index = state.activeTooltipIndex;
-      setActiveIndex(index);
-      const percentage = displayData.length > 1 
-        ? (index / (displayData.length - 1)) * 100 
-        : 100;
-      setScrubPercentage(percentage);
-    }
-    if (state?.activePayload?.[0]?.payload && onHover) {
-      onHover(state.activePayload[0].payload as DailyData);
-    }
-  }, [onHover, displayData.length]);
+  const handleMouseMove = useCallback(() => {
+    // No-op: AllTimeChart no longer broadcasts hover data to its parent.
+  }, []);
 
   const handleMouseLeave = useCallback(() => {
     setActiveIndex(null);
     setScrubPercentage(100);
-    if (onHover) {
-      onHover(null);
-    }
-  }, [onHover]);
+  }, []);
 
   const updateFromClientX = useCallback((clientX: number) => {
     if (!chartWrapperRef.current || displayData.length === 0) return;
@@ -357,10 +368,7 @@ export function AllTimeChart({ data, milestones, onHover }: AllTimeChartProps) {
 
     setActiveIndex(clampedIndex);
     setScrubPercentage(displayData.length > 1 ? (clampedIndex / (displayData.length - 1)) * 100 : 100);
-    if (onHover) {
-      onHover(displayData[clampedIndex] as DailyData);
-    }
-  }, [displayData, onHover]);
+  }, [displayData]);
 
   const handleScrubStart = useCallback((clientX: number, event?: React.SyntheticEvent) => {
     event?.preventDefault();
@@ -405,14 +413,10 @@ export function AllTimeChart({ data, milestones, onHover }: AllTimeChartProps) {
     clearTouchHold();
     const timeoutId = window.setTimeout(() => {
       touchHoldRef.current = null;
-      if (isZoomed) {
-        handlePanStart(clientX);
-      } else {
-        handleScrubStart(clientX);
-      }
+      handleScrubStart(clientX);
     }, TOUCH_HOLD_MS);
     touchHoldRef.current = { x: clientX, y: clientY, timeoutId };
-  }, [clearTouchHold, handlePanStart, handleScrubStart, isZoomed, TOUCH_HOLD_MS]);
+  }, [clearTouchHold, handleScrubStart, TOUCH_HOLD_MS]);
 
   // Attach global listeners when scrubbing
   useEffect(() => {
@@ -515,6 +519,29 @@ export function AllTimeChart({ data, milestones, onHover }: AllTimeChartProps) {
     };
   }, [isPanning, isScrubbing]);
 
+  // Trackpad / wheel horizontal pan (Mac two-finger swipe, mouse wheel with shift)
+  useEffect(() => {
+    const el = chartWrapperRef.current;
+    if (!el) return;
+    if (!isZoomed || viewStart === null || viewEnd === null) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      const dx = e.shiftKey && e.deltaX === 0 ? e.deltaY : e.deltaX;
+      if (Math.abs(dx) <= Math.abs(e.deltaY) && !e.shiftKey) return;
+      e.preventDefault();
+      const rect = el.getBoundingClientRect();
+      if (rect.width === 0) return;
+      const windowMs = viewEnd - viewStart;
+      const deltaTime = (dx / rect.width) * windowMs;
+      const clamped = clampViewRange(viewStart + deltaTime, viewEnd + deltaTime);
+      setViewStart(clamped.start);
+      setViewEnd(clamped.end);
+    };
+
+    el.addEventListener('wheel', handleWheel, { passive: false });
+    return () => el.removeEventListener('wheel', handleWheel);
+  }, [isZoomed, viewStart, viewEnd, clampViewRange]);
+
   if (data.length === 0) {
     return (
       <div className="flex items-center justify-center h-64 text-muted-foreground">
@@ -600,11 +627,18 @@ export function AllTimeChart({ data, milestones, onHover }: AllTimeChartProps) {
   ];
 
   return (
-    <div className="flex w-full gap-4">
+    <div className="flex w-full flex-col gap-4">
       <div
         ref={chartWrapperRef}
-        className="flex-1 h-72 md:h-80 relative overscroll-none"
+        className="w-full h-72 md:h-80 relative overscroll-none"
         style={{ touchAction: isScrubbing || isPanning ? 'none' : 'pan-y' }}
+        onPointerDown={(event) => {
+          if (event.pointerType === 'touch') return;
+          if ('button' in event && event.button !== 0) return;
+          if (isZoomed) {
+            handlePanStart(event.clientX, event);
+          }
+        }}
       >
         <div
           className="absolute left-0 right-0 top-[-16px] bottom-[-24px] z-20"
@@ -623,7 +657,12 @@ export function AllTimeChart({ data, milestones, onHover }: AllTimeChartProps) {
               event.stopPropagation();
               return;
             }
-            scheduleTouchHold(event.touches[0].clientX, event.touches[0].clientY);
+            const touch = event.touches[0];
+            if (isZoomed) {
+              touchHoldRef.current = { x: touch.clientX, y: touch.clientY, timeoutId: null };
+            } else {
+              scheduleTouchHold(touch.clientX, touch.clientY);
+            }
           }}
           onTouchMoveCapture={(event) => {
             if (event.touches.length !== 1) return;
@@ -631,7 +670,19 @@ export function AllTimeChart({ data, milestones, onHover }: AllTimeChartProps) {
             if (touchHoldRef.current) {
               const deltaX = touch.clientX - touchHoldRef.current.x;
               const deltaY = touch.clientY - touchHoldRef.current.y;
-              if (Math.abs(deltaX) > MOVE_CANCEL_THRESHOLD || Math.abs(deltaY) > MOVE_CANCEL_THRESHOLD) {
+              const absX = Math.abs(deltaX);
+              const absY = Math.abs(deltaY);
+              if (isZoomed) {
+                if (absX > 4 && absX >= absY) {
+                  const startX = touchHoldRef.current.x;
+                  clearTouchHold();
+                  handlePanStart(startX, event);
+                  return;
+                }
+                if (absY > 8 && absY > absX) {
+                  clearTouchHold();
+                }
+              } else if (absX > MOVE_CANCEL_THRESHOLD || absY > MOVE_CANCEL_THRESHOLD) {
                 clearTouchHold();
               }
             }
@@ -714,9 +765,9 @@ export function AllTimeChart({ data, milestones, onHover }: AllTimeChartProps) {
             <Line
               type="linear"
               dataKey="averageHours"
-              stroke={activeIndex !== null ? `url(#${scrubGradientId})` : COLORS.line}
+              stroke={COLORS.line}
               strokeWidth={2}
-              dot={(props: any) => (props.index === activeIndex ? renderActiveDot(props) : null)}
+              dot={false}
               activeDot={false}
               isAnimationActive={false}
             />
@@ -734,9 +785,8 @@ export function AllTimeChart({ data, milestones, onHover }: AllTimeChartProps) {
           </LineChart>
         </ResponsiveContainer>
       </div>
-      <div className="flex h-72 md:h-80 flex-col items-center justify-center gap-3 border-l border-border/40 pl-3">
-        <span className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">Zoom</span>
-        <div className="flex flex-col items-center gap-2 rounded-full border border-border/50 bg-muted/10 px-2 py-3">
+      <div className="flex flex-col items-center">
+        <div className="flex items-center gap-2 rounded-full border border-border/50 bg-muted/10 px-3 py-2">
           {zoomOptions.map(({ key, label }) => (
             <button
               key={key}
@@ -745,7 +795,7 @@ export function AllTimeChart({ data, milestones, onHover }: AllTimeChartProps) {
               aria-pressed={zoomOption === key}
               className={`h-8 w-8 rounded-full text-[11px] font-semibold transition-colors duration-150 ${
                 zoomOption === key
-                  ? 'bg-foreground text-background'
+                  ? 'bg-muted-foreground/30 text-foreground'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >

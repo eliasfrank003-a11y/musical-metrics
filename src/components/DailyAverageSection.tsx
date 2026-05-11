@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { format, startOfDay } from 'date-fns';
+import { AddMilestoneDialog, AddMilestonePayload } from '@/components/AddMilestoneDialog';
 import { MetricDisplay } from '@/components/MetricDisplay';
 import { TimeRangeSelector } from '@/components/TimeRangeSelector';
 import { PracticeChart } from '@/components/PracticeChart';
@@ -11,6 +12,7 @@ import { PracticeSession } from '@/lib/csvParser';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useCalendarSync } from '@/hooks/useCalendarSync';
+import { useMilestones } from '@/hooks/useMilestones';
 import { RefreshCw, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
@@ -44,8 +46,10 @@ export function DailyAverageSection({ onAnalyticsUpdate, mirrorTimeSeconds = 0 }
   const [isLoading, setIsLoading] = useState(true);
   const [hoveredData, setHoveredData] = useState<DailyData | null>(null);
   const [hoveredIntradayData, setHoveredIntradayData] = useState<IntradayData | null>(null);
+  const [isAddMilestoneOpen, setIsAddMilestoneOpen] = useState(false);
   const { toast } = useToast();
   const { syncCalendar, isSyncing } = useCalendarSync();
+  const { createMilestone } = useMilestones();
 
   // Fetch all data from Supabase (paginated)
   const fetchData = useCallback(async () => {
@@ -113,26 +117,23 @@ export function DailyAverageSection({ onAnalyticsUpdate, mirrorTimeSeconds = 0 }
       };
 
       const y1Date = new Date('2025-02-01T00:00:00');
-      const y2Date = startOfDay(new Date());
+      const todayStart = startOfDay(new Date());
 
-      const syntheticMilestones: Milestone[] = [
-        {
-          id: -1001,
-          hours: Math.round(getCumulativeAt(y1Date)),
-          achieved_at: y1Date.toISOString(),
+      // Generate a Yn marker for every yearly anniversary that has already passed.
+      const syntheticMilestones: Milestone[] = [];
+      for (let yearOffset = 0; ; yearOffset++) {
+        const yDate = new Date(y1Date);
+        yDate.setFullYear(yDate.getFullYear() + yearOffset);
+        if (yDate > todayStart) break;
+        syntheticMilestones.push({
+          id: -1001 - yearOffset,
+          hours: Math.round(getCumulativeAt(yDate)),
+          achieved_at: yDate.toISOString(),
           average_at_milestone: null,
-          description: 'Y1',
+          description: `Y${yearOffset + 1}`,
           milestone_type: 'custom',
-        },
-        {
-          id: -1002,
-          hours: Math.round(getCumulativeAt(y2Date)),
-          achieved_at: y2Date.toISOString(),
-          average_at_milestone: null,
-          description: 'Y2',
-          milestone_type: 'custom',
-        },
-      ];
+        });
+      }
 
       const combined = [...(milestonesData ?? []), ...syntheticMilestones]
         .sort((a, b) => a.hours - b.hours);
@@ -325,6 +326,31 @@ export function DailyAverageSection({ onAnalyticsUpdate, mirrorTimeSeconds = 0 }
     }
   };
 
+  const getAverageAtDate = useCallback((target: Date) => {
+    if (!analytics) return null;
+    const key = format(startOfDay(target), 'yyyy-MM-dd');
+    const exact = analytics.dailyData.find(d => d.dateStr === key);
+    if (exact) return exact.cumulativeAverage;
+    const fallback = [...analytics.dailyData].reverse().find(d => d.date <= target);
+    return fallback ? fallback.cumulativeAverage : analytics.currentAverage;
+  }, [analytics]);
+
+  const handleCreateMilestone = useCallback(async (payload: AddMilestonePayload) => {
+    if (!analytics) return;
+    const achievedDate = new Date(`${payload.date}T00:00:00`);
+    const averageAtMilestone = getAverageAtDate(achievedDate);
+
+    await createMilestone({
+      hours: payload.hours,
+      achievedAt: achievedDate.toISOString(),
+      description: payload.description,
+      milestoneType: payload.milestoneType,
+      averageAtMilestone,
+    });
+
+    await fetchData();
+  }, [analytics, createMilestone, fetchData, getAverageAtDate]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -398,8 +424,16 @@ export function DailyAverageSection({ onAnalyticsUpdate, mirrorTimeSeconds = 0 }
           totalHours={adjustedTotalHours}
           totalDays={analytics.totalDays}
           currentAverage={adjustedCurrentAverage}
+          onAddMilestone={() => setIsAddMilestoneOpen(true)}
         />
       </div>
+
+      <AddMilestoneDialog
+        open={isAddMilestoneOpen}
+        onOpenChange={setIsAddMilestoneOpen}
+        currentHours={adjustedTotalHours}
+        onCreate={handleCreateMilestone}
+      />
     </div>
   );
 }

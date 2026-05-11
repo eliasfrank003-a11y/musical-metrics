@@ -14,10 +14,14 @@ interface SwipeableLayoutProps {
   onSync?: () => Promise<void>;
   onMirrorTimeChange?: (seconds: number) => void;
   isSwipeDisabled?: boolean;
+  onViewChange?: (view: 'left' | 'right') => void;
 }
 
-export function SwipeableLayout({ leftView, rightView, onSync, onMirrorTimeChange, isSwipeDisabled }: SwipeableLayoutProps) {
+export function SwipeableLayout({ leftView, rightView, onSync, onMirrorTimeChange, isSwipeDisabled, onViewChange }: SwipeableLayoutProps) {
   const [currentView, setCurrentView] = useState<'left' | 'right'>('left');
+  useEffect(() => {
+    onViewChange?.(currentView);
+  }, [currentView, onViewChange]);
   const [touchDelta, setTouchDelta] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
@@ -305,9 +309,6 @@ export function SwipeableLayout({ leftView, rightView, onSync, onMirrorTimeChang
           if (axisLockRef.current === 'x') {
             e.preventDefault();
           }
-        }}
-        onTouchEndCapture={() => {
-          axisLockRef.current = null;
         }}
       >
         <div 

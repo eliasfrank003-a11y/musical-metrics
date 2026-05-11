@@ -63,6 +63,14 @@ export interface Milestone {
   milestone_type: string | null;
 }
 
+export interface CreateMilestoneInput {
+  hours: number;
+  achievedAt: string;
+  description: string | null;
+  milestoneType: 'interval' | 'custom';
+  averageAtMilestone?: number | null;
+}
+
 export function useMilestones() {
   const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -188,5 +196,39 @@ export function useMilestones() {
     }
   }, [fetchMilestones, toast]);
 
-  return { milestones, isLoading, refetch: fetchMilestones, checkAndCreateMilestones, updateMilestoneDescription };
+  const createMilestone = useCallback(async (input: CreateMilestoneInput) => {
+    try {
+      const { error } = await supabase
+        .from('milestones')
+        .insert({
+          hours: Math.round(input.hours),
+          achieved_at: input.achievedAt,
+          average_at_milestone: input.averageAtMilestone ?? null,
+          description: input.description,
+          milestone_type: input.milestoneType,
+        });
+
+      if (error) throw error;
+
+      if (input.milestoneType === 'interval') {
+        await createRepertoireDividersForMilestones([Math.round(input.hours)]);
+      }
+
+      await fetchMilestones();
+      toast({
+        title: 'Milestone added',
+        duration: 2000,
+      });
+    } catch (error) {
+      console.error('[Milestones] Error creating milestone:', error);
+      toast({
+        title: 'Error adding milestone',
+        description: error instanceof Error ? error.message : 'Unknown error',
+        variant: 'destructive',
+      });
+      throw error;
+    }
+  }, [fetchMilestones, toast]);
+
+  return { milestones, isLoading, refetch: fetchMilestones, checkAndCreateMilestones, updateMilestoneDescription, createMilestone };
 }

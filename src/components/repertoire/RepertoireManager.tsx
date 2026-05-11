@@ -23,6 +23,7 @@ interface RepertoireManagerProps {
   onReorder: (draggedId: number, targetId: number) => void;
   isLoading?: boolean;
   onEditingStateChange?: (isEditing: boolean) => void;
+  isActive?: boolean;
 }
 
 export function RepertoireManager({
@@ -34,6 +35,7 @@ export function RepertoireManager({
   onReorder,
   isLoading,
   onEditingStateChange,
+  isActive,
 }: RepertoireManagerProps) {
   const [showRedOnly, setShowRedOnly] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -49,6 +51,20 @@ export function RepertoireManager({
     const isActivelyEditing = isEditMode || isAddingPiece || isAddingDivider;
     onEditingStateChange?.(isActivelyEditing);
   }, [isEditMode, isAddingPiece, isAddingDivider, onEditingStateChange]);
+
+  // When the user navigates away from the Repertoire tab, drop transient UI state
+  // (red filter, in-flight add forms) so they see a fresh list when they return.
+  // Edit mode is left alone since it's an explicit toggle the user chose.
+  useEffect(() => {
+    if (isActive === false) {
+      setShowRedOnly(false);
+      setIsAddingPiece(false);
+      setIsAddingDivider(false);
+      setNewTitle('');
+      setNewStartDate(undefined);
+      setSelectedPositionId(null);
+    }
+  }, [isActive]);
 
   const handleDragStart = (e: React.DragEvent, id: number) => {
     setDraggedId(id);

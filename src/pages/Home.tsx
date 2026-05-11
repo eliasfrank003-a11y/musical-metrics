@@ -15,6 +15,7 @@ export function Home() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [isRepertoireEditing, setIsRepertoireEditing] = useState(false);
   const [mirrorTimeSeconds, setMirrorTimeSeconds] = useState(0);
+  const [currentView, setCurrentView] = useState<'left' | 'right'>('left');
 
   // Initialize seeding (runs once if tables are empty)
   useDataSeeding({
@@ -42,10 +43,16 @@ export function Home() {
   return (
     <SwipeableLayout
       leftView={timeView}
-      rightView={<Repertoire onEditingStateChange={setIsRepertoireEditing} />}
+      rightView={
+        <Repertoire
+          onEditingStateChange={setIsRepertoireEditing}
+          isActive={currentView === 'right'}
+        />
+      }
       onSync={handleSync}
       onMirrorTimeChange={handleMirrorTimeChange}
       isSwipeDisabled={isRepertoireEditing}
+      onViewChange={setCurrentView}
     />
   );
 }

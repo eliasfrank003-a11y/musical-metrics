@@ -151,21 +151,21 @@ export function RepertoireItem({
         )}
         {isEditMode && !isEditing && (
           <div className="flex items-center gap-1">
-            <Button 
-              size="icon" 
-              variant="ghost" 
-              className="h-6 w-6 hover:bg-transparent hover:text-destructive"
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-7 w-7 hover:bg-transparent hover:text-destructive"
               onClick={() => setIsEditing(true)}
             >
-              <Edit2 className="h-3 w-3" />
+              <Edit2 className="h-3.5 w-3.5" />
             </Button>
-            <Button 
-              size="icon" 
-              variant="ghost" 
-              className="h-6 w-6 hover:bg-transparent hover:text-destructive"
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-7 w-7 hover:bg-transparent hover:text-destructive"
               onClick={() => onDelete(item.id)}
             >
-              <Trash2 className="h-3 w-3" />
+              <Trash2 className="h-3.5 w-3.5" />
             </Button>
           </div>
         )}

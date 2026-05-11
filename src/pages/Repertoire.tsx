@@ -3,9 +3,10 @@ import { useRepertoire } from '@/hooks/useRepertoire';
 
 interface RepertoireProps {
   onEditingStateChange?: (isEditing: boolean) => void;
+  isActive?: boolean;
 }
 
-export function Repertoire({ onEditingStateChange }: RepertoireProps) {
+export function Repertoire({ onEditingStateChange, isActive }: RepertoireProps) {
   const {
     items,
     isLoading,
@@ -28,6 +29,7 @@ export function Repertoire({ onEditingStateChange }: RepertoireProps) {
         onReorder={reorderItems}
         isLoading={isLoading}
         onEditingStateChange={onEditingStateChange}
+        isActive={isActive}
       />
     </div>
   );

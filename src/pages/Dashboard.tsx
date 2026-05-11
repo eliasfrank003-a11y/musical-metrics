@@ -48,26 +48,22 @@ export function Dashboard() {
     };
 
     const y1Date = new Date('2025-02-01T00:00:00');
-    const y2Date = startOfDay(new Date());
+    const todayStart = startOfDay(new Date());
 
-    const synthetic = [
-      {
-        id: -1001,
-        hours: Math.round(getCumulativeAt(y1Date)),
-        achieved_at: y1Date.toISOString(),
+    const synthetic: any[] = [];
+    for (let yearOffset = 0; ; yearOffset++) {
+      const yDate = new Date(y1Date);
+      yDate.setFullYear(yDate.getFullYear() + yearOffset);
+      if (yDate > todayStart) break;
+      synthetic.push({
+        id: -1001 - yearOffset,
+        hours: Math.round(getCumulativeAt(yDate)),
+        achieved_at: yDate.toISOString(),
         average_at_milestone: null,
-        description: 'Y1',
+        description: `Y${yearOffset + 1}`,
         milestone_type: 'custom',
-      },
-      {
-        id: -1002,
-        hours: Math.round(getCumulativeAt(y2Date)),
-        achieved_at: y2Date.toISOString(),
-        average_at_milestone: null,
-        description: 'Y2',
-        milestone_type: 'custom',
-      },
-    ];
+      });
+    }
 
     return [...milestones, ...synthetic].sort((a, b) => a.hours - b.hours);
   }, [analytics, milestones]);

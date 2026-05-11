@@ -133,6 +133,7 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
     if (m.achieved_at) {
       const isCustom = m.milestone_type === 'custom';
       let customTitle = formatHoursTitle(m.hours);
+      let displayDescription = m.description ?? null;
       
       if (isCustom) {
         // Direct mapping for known custom milestones
@@ -164,6 +165,11 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
             } else {
               customTitle = nameLine;
             }
+
+            if (lines[0] === nameLine) {
+              const remaining = lines.slice(1);
+              displayDescription = remaining.length > 0 ? remaining.join('\n') : null;
+            }
           }
         }
       }
@@ -180,7 +186,7 @@ export function VerticalTimeline({ milestones, currentHours, dailyAverage, start
         title: isCustom ? customTitle : formatHoursTitle(m.hours),
         date: new Date(m.achieved_at),
         average: m.average_at_milestone ? formatAverage(m.average_at_milestone, m.hours) : null,
-        description: m.description,
+        description: displayDescription,
         isFuture: false,
         isCustom,
         isTeacher,
