@@ -121,6 +121,12 @@ All colors MUST be HSL.
     background-color: hsl(var(--background));
   }
 
+  html,
+  body,
+  #root {
+    touch-action: pan-x pan-y;
+  }
+
   /* Completely disable scrollbars everywhere */
   *,
   *::before,
