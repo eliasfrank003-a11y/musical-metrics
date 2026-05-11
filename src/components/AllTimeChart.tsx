@@ -8,7 +8,7 @@ import {
   ResponsiveContainer,
   ReferenceDot,
 } from 'recharts';
-import { format } from 'date-fns';
+import { format, subMonths, subYears } from 'date-fns';
 import { DailyData } from '@/lib/practiceAnalytics';
 
 interface Milestone {
@@ -25,6 +25,8 @@ interface AllTimeChartProps {
   milestones: Milestone[];
   onHover?: (data: DailyData | null) => void;
 }
+
+type ZoomOption = '1M' | '6M' | '1Y' | 'ALL';
 
 // Minimalist color palette
 const COLORS = {
@@ -107,13 +109,12 @@ export function AllTimeChart({ data, milestones, onHover }: AllTimeChartProps) {
   const [scrubPercentage, setScrubPercentage] = useState<number>(100);
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [isPanning, setIsPanning] = useState(false);
-  const [isZooming, setIsZooming] = useState(false);
   const [viewStart, setViewStart] = useState<number | null>(null);
   const [viewEnd, setViewEnd] = useState<number | null>(null);
+  const [zoomOption, setZoomOption] = useState<ZoomOption>('ALL');
   const chartWrapperRef = useRef<HTMLDivElement>(null);
   const touchHoldRef = useRef<{ x: number; y: number; timeoutId: number | null } | null>(null);
   const panStateRef = useRef<{ startX: number; startViewStart: number; startViewEnd: number } | null>(null);
-  const pinchStateRef = useRef<{ startDistance: number; startViewStart: number; startViewEnd: number } | null>(null);
   const panRafRef = useRef<number | null>(null);
   const panPendingRef = useRef<{ start: number; end: number } | null>(null);
   const isCoarsePointer = useMemo(
@@ -141,15 +142,35 @@ export function AllTimeChart({ data, milestones, onHover }: AllTimeChartProps) {
     };
   }, [chartData]);
 
+  const applyZoomOption = useCallback((option: ZoomOption) => {
+    if (chartData.length === 0) return;
+
+    if (option === 'ALL') {
+      setViewStart(dataMin);
+      setViewEnd(dataMax);
+      return;
+    }
+
+    const endDate = new Date(dataMax);
+    const startDate =
+      option === '1M'
+        ? subMonths(endDate, 1)
+        : option === '6M'
+          ? subMonths(endDate, 6)
+          : subYears(endDate, 1);
+
+    const startMs = Math.max(startDate.getTime(), dataMin);
+    setViewStart(startMs);
+    setViewEnd(dataMax);
+  }, [chartData.length, dataMax, dataMin]);
+
   useEffect(() => {
     if (chartData.length === 0) return;
-    setViewStart(dataMin);
-    setViewEnd(dataMax);
-  }, [chartData.length, dataMin, dataMax]);
+    applyZoomOption(zoomOption);
+  }, [chartData.length, applyZoomOption, dataMax, dataMin, zoomOption]);
 
   const fullRangeMs = dataMax - dataMin;
   const viewWindowMs = viewStart !== null && viewEnd !== null ? viewEnd - viewStart : 0;
-  const minWindowMs = Math.min(fullRangeMs, 1000 * 60 * 60 * 24 * 365);
   const isZoomed = viewWindowMs > 0 && viewWindowMs < fullRangeMs;
 
   const visibleChartData = useMemo(() => {
@@ -372,72 +393,26 @@ export function AllTimeChart({ data, milestones, onHover }: AllTimeChartProps) {
     return { start: newStart, end: newEnd };
   }, [dataMin, dataMax]);
 
-  const zoomBy = useCallback((factor: number) => {
-    if (viewStart === null || viewEnd === null || fullRangeMs <= 0) return;
-    const windowMs = viewEnd - viewStart;
-    const targetWindow = windowMs * factor;
-    const newWindow = Math.max(minWindowMs, Math.min(fullRangeMs, targetWindow));
-    const center = (viewStart + viewEnd) / 2;
-    const newStart = center - newWindow / 2;
-    const newEnd = center + newWindow / 2;
-    const clamped = clampViewRange(newStart, newEnd);
-    setViewStart(clamped.start);
-    setViewEnd(clamped.end);
-  }, [viewStart, viewEnd, fullRangeMs, minWindowMs, clampViewRange]);
-
   const handlePanStart = useCallback((clientX: number, event?: React.SyntheticEvent) => {
-    if (!isZoomed || viewStart === null || viewEnd === null || isZooming || isScrubbing) return;
+    if (!isZoomed || viewStart === null || viewEnd === null || isScrubbing) return;
     event?.preventDefault();
     event?.stopPropagation();
     panStateRef.current = { startX: clientX, startViewStart: viewStart, startViewEnd: viewEnd };
     setIsPanning(true);
-  }, [isZoomed, viewStart, viewEnd, isZooming, isScrubbing]);
+  }, [isZoomed, viewStart, viewEnd, isScrubbing]);
 
   const scheduleTouchHold = useCallback((clientX: number, clientY: number) => {
     clearTouchHold();
     const timeoutId = window.setTimeout(() => {
       touchHoldRef.current = null;
-      if (isZoomed && !isZooming) {
+      if (isZoomed) {
         handlePanStart(clientX);
       } else {
         handleScrubStart(clientX);
       }
     }, TOUCH_HOLD_MS);
     touchHoldRef.current = { x: clientX, y: clientY, timeoutId };
-  }, [clearTouchHold, handlePanStart, handleScrubStart, isZoomed, isZooming, TOUCH_HOLD_MS]);
-
-  const handleWheel = useCallback((event: React.WheelEvent<HTMLDivElement>) => {
-    if (!chartWrapperRef.current || fullRangeMs <= 0) return;
-    if (isPanning) return;
-
-    const isPinch = event.ctrlKey;
-    const hasHorizontalScroll = Math.abs(event.deltaX) > Math.abs(event.deltaY);
-
-    if (isPinch) {
-      if (isPanning) return;
-      event.preventDefault();
-      event.stopPropagation();
-      setIsZooming(true);
-      const factor = event.deltaY > 0 ? 1.08 : 0.92;
-      zoomBy(factor);
-      window.setTimeout(() => setIsZooming(false), 120);
-      return;
-    }
-
-    if (isZoomed && !isZooming && (hasHorizontalScroll || event.shiftKey)) {
-      event.preventDefault();
-      event.stopPropagation();
-      const rect = chartWrapperRef.current.getBoundingClientRect();
-      const deltaX = hasHorizontalScroll ? event.deltaX : event.deltaY;
-      const windowMs = viewWindowMs || fullRangeMs;
-      const deltaTime = rect.width > 0 ? (deltaX / rect.width) * windowMs : 0;
-      if (viewStart !== null && viewEnd !== null) {
-        const clamped = clampViewRange(viewStart + deltaTime, viewEnd + deltaTime);
-        setViewStart(clamped.start);
-        setViewEnd(clamped.end);
-      }
-    }
-  }, [clampViewRange, fullRangeMs, isPanning, isZoomed, isZooming, viewEnd, viewStart, viewWindowMs, zoomBy]);
+  }, [clearTouchHold, handlePanStart, handleScrubStart, isZoomed, TOUCH_HOLD_MS]);
 
   // Attach global listeners when scrubbing
   useEffect(() => {
@@ -532,15 +507,6 @@ export function AllTimeChart({ data, milestones, onHover }: AllTimeChartProps) {
   }, [isPanning, clampViewRange]);
 
   useEffect(() => {
-    if (!isZooming) return;
-    const originalOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = originalOverflow;
-    };
-  }, [isZooming]);
-
-  useEffect(() => {
     if (!(isPanning || isScrubbing)) return;
     const originalOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -626,175 +592,168 @@ export function AllTimeChart({ data, milestones, onHover }: AllTimeChartProps) {
 
   const scrubGradientId = `scrubGradient-alltime-${Math.random().toString(36).substr(2, 9)}`;
 
-  const canZoomIn = viewWindowMs > minWindowMs + 1;
-  const canZoomOut = viewWindowMs < fullRangeMs - 1;
-  const handleZoomIn = () => zoomBy(0.7);
-  const handleZoomOut = () => zoomBy(1 / 0.7);
+  const zoomOptions: Array<{ key: ZoomOption; label: string }> = [
+    { key: '1M', label: '1M' },
+    { key: '6M', label: '6M' },
+    { key: '1Y', label: '1Y' },
+    { key: 'ALL', label: 'All' },
+  ];
 
   return (
-    <div
-      ref={chartWrapperRef}
-      className="w-full h-72 md:h-80 relative overscroll-none"
-      style={{ touchAction: isScrubbing || isPanning || isZooming ? 'none' : 'pan-y' }}
-      onWheel={handleWheel}
-    >
+    <div className="flex w-full gap-4">
       <div
-        className="absolute left-0 right-0 top-[-16px] bottom-[-24px] z-20"
-        style={{ pointerEvents: isCoarsePointer || isScrubbing ? 'auto' : 'none' }}
-        onPointerDown={(event) => {
-          if (event.pointerType === 'touch') return;
-          if (isZoomed && isCoarsePointer) {
-            handlePanStart(event.clientX, event);
-          } else {
-            handleScrubStart(event.clientX, event);
-          }
-        }}
-        onTouchStartCapture={(event) => {
-          if (event.touches.length >= 2) {
-            if (isPanning || isScrubbing) return;
-            event.preventDefault();
-            event.stopPropagation();
-            const dx = event.touches[0].clientX - event.touches[1].clientX;
-            const dy = event.touches[0].clientY - event.touches[1].clientY;
-            const distance = Math.hypot(dx, dy);
-            if (viewStart !== null && viewEnd !== null) {
-              pinchStateRef.current = { startDistance: distance, startViewStart: viewStart, startViewEnd: viewEnd };
-              setIsZooming(true);
+        ref={chartWrapperRef}
+        className="flex-1 h-72 md:h-80 relative overscroll-none"
+        style={{ touchAction: isScrubbing || isPanning ? 'none' : 'pan-y' }}
+      >
+        <div
+          className="absolute left-0 right-0 top-[-16px] bottom-[-24px] z-20"
+          style={{ pointerEvents: isCoarsePointer || isScrubbing ? 'auto' : 'none' }}
+          onPointerDown={(event) => {
+            if (event.pointerType === 'touch') return;
+            if (isZoomed && isCoarsePointer) {
+              handlePanStart(event.clientX, event);
+            } else {
+              handleScrubStart(event.clientX, event);
             }
-            return;
-          }
-          scheduleTouchHold(event.touches[0].clientX, event.touches[0].clientY);
-        }}
-        onTouchMoveCapture={(event) => {
-          if (pinchStateRef.current && event.touches.length >= 2) {
-            event.preventDefault();
-            event.stopPropagation();
-            const dx = event.touches[0].clientX - event.touches[1].clientX;
-            const dy = event.touches[0].clientY - event.touches[1].clientY;
-            const distance = Math.hypot(dx, dy);
-            const ratio = pinchStateRef.current.startDistance > 0 ? distance / pinchStateRef.current.startDistance : 1;
-            const targetWindow = (pinchStateRef.current.startViewEnd - pinchStateRef.current.startViewStart) / ratio;
-            const newWindow = Math.max(minWindowMs, Math.min(fullRangeMs, targetWindow));
-            const center = (pinchStateRef.current.startViewStart + pinchStateRef.current.startViewEnd) / 2;
-            const newStart = center - newWindow / 2;
-            const newEnd = center + newWindow / 2;
-            const clamped = clampViewRange(newStart, newEnd);
-            setViewStart(clamped.start);
-            setViewEnd(clamped.end);
-            return;
-          }
-
-          if (event.touches.length !== 1) return;
-          const touch = event.touches[0];
-          if (touchHoldRef.current) {
-            const deltaX = touch.clientX - touchHoldRef.current.x;
-            const deltaY = touch.clientY - touchHoldRef.current.y;
-            if (Math.abs(deltaX) > MOVE_CANCEL_THRESHOLD || Math.abs(deltaY) > MOVE_CANCEL_THRESHOLD) {
-              clearTouchHold();
+          }}
+          onTouchStartCapture={(event) => {
+            if (event.touches.length !== 1) {
+              event.preventDefault();
+              event.stopPropagation();
+              return;
             }
-          }
+            scheduleTouchHold(event.touches[0].clientX, event.touches[0].clientY);
+          }}
+          onTouchMoveCapture={(event) => {
+            if (event.touches.length !== 1) return;
+            const touch = event.touches[0];
+            if (touchHoldRef.current) {
+              const deltaX = touch.clientX - touchHoldRef.current.x;
+              const deltaY = touch.clientY - touchHoldRef.current.y;
+              if (Math.abs(deltaX) > MOVE_CANCEL_THRESHOLD || Math.abs(deltaY) > MOVE_CANCEL_THRESHOLD) {
+                clearTouchHold();
+              }
+            }
 
-          if (isScrubbing) {
-            event.preventDefault();
-            event.stopPropagation();
-            updateFromClientX(touch.clientX);
-          } else if (isPanning) {
-            event.preventDefault();
-            event.stopPropagation();
-          }
-        }}
-        onTouchEndCapture={(event) => {
-          clearTouchHold();
-          pinchStateRef.current = null;
-          setIsZooming(false);
-          if (isScrubbing) {
-            if ('preventDefault' in event) event.preventDefault();
-            if ('stopPropagation' in event) event.stopPropagation();
-            setIsScrubbing(false);
-            handleMouseLeave();
-          }
-        }}
-        onTouchCancelCapture={(event) => {
-          clearTouchHold();
-          pinchStateRef.current = null;
-          setIsZooming(false);
-          if (isScrubbing) {
-            if ('preventDefault' in event) event.preventDefault();
-            if ('stopPropagation' in event) event.stopPropagation();
-            setIsScrubbing(false);
-            handleMouseLeave();
-          }
-        }}
-      />
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart 
-          data={displayData} 
-          margin={{ top: 45, right: 24, left: 24, bottom: 20 }}
-          onMouseMove={handleMouseMove}
-          onMouseLeave={handleMouseLeave}
-        >
-          <defs>
-            <linearGradient id={scrubGradientId} x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset={`${scrubPercentage}%`} stopColor={COLORS.line} />
-              <stop offset={`${scrubPercentage}%`} stopColor={COLORS.muted} stopOpacity={0.3} />
-              <stop offset="100%" stopColor={COLORS.muted} stopOpacity={0.3} />
-            </linearGradient>
-          </defs>
-          
-          <XAxis
-            dataKey="timestamp"
-            type="number"
-            domain={[viewStart ?? 'dataMin', viewEnd ?? 'dataMax']}
-            scale="time"
-            axisLine={false}
-            tickLine={false}
-            tick={renderXAxisTick}
-            ticks={xAxisTicks}
-            tickFormatter={formatXAxisTick}
-            interval={0}
-          />
-          <YAxis
-            domain={yDomain}
-            tickCount={4}
-            allowDecimals={true}
-            tickFormatter={formatYAxis}
-            axisLine={false}
-            tickLine={false}
-            tick={{ fill: COLORS.muted, fontSize: 12 }}
-            orientation="right"
-            mirror={true}
-            dx={-10}
-            width={0}
-          />
-          <Tooltip
-            cursor={false}
-            content={() => null}
-            wrapperStyle={{ display: 'none' }}
-          />
-          
-          {/* The main line - neutral gray (rendered first so annotations appear on top) */}
-          <Line
-            type="linear"
-            dataKey="averageHours"
-            stroke={activeIndex !== null ? `url(#${scrubGradientId})` : COLORS.line}
-            strokeWidth={2}
-            dot={(props: any) => (props.index === activeIndex ? renderActiveDot(props) : null)}
-            activeDot={false}
-            isAnimationActive={false}
-          />
-          
-          {/* Milestone annotations (rendered after line so they appear on top) */}
-          {milestoneMarkers.map((m) => (
-            <ReferenceDot
-              key={m.id}
-              x={m.timestamp}
-              y={m.yValue}
-              r={0}
-              label={(props: any) => renderMilestoneLabel({ ...props, milestone: m })}
+            if (isScrubbing) {
+              event.preventDefault();
+              event.stopPropagation();
+              updateFromClientX(touch.clientX);
+            } else if (isPanning) {
+              event.preventDefault();
+              event.stopPropagation();
+            }
+          }}
+          onTouchEndCapture={(event) => {
+            clearTouchHold();
+            if (isScrubbing) {
+              if ('preventDefault' in event) event.preventDefault();
+              if ('stopPropagation' in event) event.stopPropagation();
+              setIsScrubbing(false);
+              handleMouseLeave();
+            }
+          }}
+          onTouchCancelCapture={(event) => {
+            clearTouchHold();
+            if (isScrubbing) {
+              if ('preventDefault' in event) event.preventDefault();
+              if ('stopPropagation' in event) event.stopPropagation();
+              setIsScrubbing(false);
+              handleMouseLeave();
+            }
+          }}
+        />
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart 
+            data={displayData} 
+            margin={{ top: 45, right: 24, left: 24, bottom: 20 }}
+            onMouseMove={handleMouseMove}
+            onMouseLeave={handleMouseLeave}
+          >
+            <defs>
+              <linearGradient id={scrubGradientId} x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset={`${scrubPercentage}%`} stopColor={COLORS.line} />
+                <stop offset={`${scrubPercentage}%`} stopColor={COLORS.muted} stopOpacity={0.3} />
+                <stop offset="100%" stopColor={COLORS.muted} stopOpacity={0.3} />
+              </linearGradient>
+            </defs>
+            
+            <XAxis
+              dataKey="timestamp"
+              type="number"
+              domain={[viewStart ?? 'dataMin', viewEnd ?? 'dataMax']}
+              scale="time"
+              axisLine={false}
+              tickLine={false}
+              tick={renderXAxisTick}
+              ticks={xAxisTicks}
+              tickFormatter={formatXAxisTick}
+              interval={0}
             />
+            <YAxis
+              domain={yDomain}
+              tickCount={4}
+              allowDecimals={true}
+              tickFormatter={formatYAxis}
+              axisLine={false}
+              tickLine={false}
+              tick={{ fill: COLORS.muted, fontSize: 12 }}
+              orientation="right"
+              mirror={true}
+              dx={-10}
+              width={0}
+            />
+            <Tooltip
+              cursor={false}
+              content={() => null}
+              wrapperStyle={{ display: 'none' }}
+            />
+            
+            {/* The main line - neutral gray (rendered first so annotations appear on top) */}
+            <Line
+              type="linear"
+              dataKey="averageHours"
+              stroke={activeIndex !== null ? `url(#${scrubGradientId})` : COLORS.line}
+              strokeWidth={2}
+              dot={(props: any) => (props.index === activeIndex ? renderActiveDot(props) : null)}
+              activeDot={false}
+              isAnimationActive={false}
+            />
+            
+            {/* Milestone annotations (rendered after line so they appear on top) */}
+            {milestoneMarkers.map((m) => (
+              <ReferenceDot
+                key={m.id}
+                x={m.timestamp}
+                y={m.yValue}
+                r={0}
+                label={(props: any) => renderMilestoneLabel({ ...props, milestone: m })}
+              />
+            ))}
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+      <div className="flex h-72 md:h-80 flex-col items-center justify-center gap-3 border-l border-border/40 pl-3">
+        <span className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">Zoom</span>
+        <div className="flex flex-col items-center gap-2 rounded-full border border-border/50 bg-muted/10 px-2 py-3">
+          {zoomOptions.map(({ key, label }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setZoomOption(key)}
+              aria-pressed={zoomOption === key}
+              className={`h-8 w-8 rounded-full text-[11px] font-semibold transition-colors duration-150 ${
+                zoomOption === key
+                  ? 'bg-foreground text-background'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {label}
+            </button>
           ))}
-        </LineChart>
-      </ResponsiveContainer>
+        </div>
+      </div>
     </div>
   );
 }
